@@ -9,7 +9,12 @@ use Illuminate\Support\Facades\Validator;
 
 class AiAnalyzer
 {
-    /** @return array{kategori:string,tingkat_keparahan:int,ringkasan:string,alasan:string}|null */
+    /**
+     * Analisis foto dan deskripsi menggunakan Gemini Multimodal.
+     * Mengembalikan data relevansi, kepercayaan, kategori, dan keparahan.
+     *
+     * @return array{relevan:bool,kepercayaan:int,kategori:string,tingkat_keparahan:int,ringkasan:string,alasan:string}|null
+     */
     public function analyze(string $fotoPath, ?string $deskripsi): ?array
     {
         $kategori = config('domain.kategori');
@@ -30,12 +35,14 @@ class AiAnalyzer
                 'responseSchema' => [
                     'type' => 'OBJECT',
                     'properties' => [
+                        'relevan' => ['type' => 'BOOLEAN'],
+                        'kepercayaan' => ['type' => 'INTEGER'],
                         'kategori' => ['type' => 'STRING', 'enum' => $kategori],
                         'tingkat_keparahan' => ['type' => 'INTEGER'],
                         'ringkasan' => ['type' => 'STRING'],
                         'alasan' => ['type' => 'STRING'],
                     ],
-                    'required' => ['kategori', 'tingkat_keparahan', 'ringkasan', 'alasan'],
+                    'required' => ['relevan', 'kepercayaan', 'kategori', 'tingkat_keparahan', 'ringkasan', 'alasan'],
                 ],
             ],
         ];
@@ -52,6 +59,8 @@ class AiAnalyzer
                 $json = json_decode($res->json('candidates.0.content.parts.0.text', ''), true);
 
                 $v = Validator::make($json ?? [], [
+                    'relevan' => ['required', 'boolean'],
+                    'kepercayaan' => ['required', 'integer', 'between:0,100'],
                     'kategori' => ['required', 'in:'.implode(',', $kategori)],
                     'tingkat_keparahan' => ['required', 'integer', 'between:1,5'],
                     'ringkasan' => ['required', 'string'],

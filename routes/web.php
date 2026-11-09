@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminReportController;
+use App\Http\Controllers\Admin\AdminStatisticsController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ReportController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
@@ -24,6 +26,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/laporan', [ReportController::class, 'store'])->name('reports.store');
     Route::get('/laporan/{report}', [ReportController::class, 'show'])->name('reports.show');
 });
-// Route admin: Route::middleware(['auth', 'admin'])->prefix('admin')->group(...)
+
+// Route Admin (dilindungi middleware auth dan admin)
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', [AdminReportController::class, 'index'])->name('dashboard');
+    Route::get('/statistik', [AdminStatisticsController::class, 'index'])->name('statistics');
+    Route::get('/laporan/{report}', [AdminReportController::class, 'show'])->name('reports.show');
+    Route::patch('/laporan/{report}/status', [AdminReportController::class, 'updateStatus'])->name('reports.updateStatus');
+});
 
 require __DIR__.'/auth.php';

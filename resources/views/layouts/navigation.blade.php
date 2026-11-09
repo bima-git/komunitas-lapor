@@ -15,6 +15,23 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+
+                    <x-nav-link :href="route('reports.index')" :active="request()->routeIs('reports.index')">
+                        {{ __('Laporan Saya') }}
+                    </x-nav-link>
+
+                    <x-nav-link :href="route('reports.create')" :active="request()->routeIs('reports.create')">
+                        {{ __('+ Buat Laporan') }}
+                    </x-nav-link>
+
+                    @if (Auth::user()?->role === 'admin')
+                        <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.dashboard') || request()->routeIs('admin.reports.*')" class="text-blue-600 font-semibold">
+                            {{ __('Panel Admin') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('admin.statistics')" :active="request()->routeIs('admin.statistics')" class="text-blue-600 font-semibold">
+                            {{ __('Statistik') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -70,6 +87,23 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+
+            <x-responsive-nav-link :href="route('reports.index')" :active="request()->routeIs('reports.index')">
+                {{ __('Laporan Saya') }}
+            </x-responsive-nav-link>
+
+            <x-responsive-nav-link :href="route('reports.create')" :active="request()->routeIs('reports.create')">
+                {{ __('+ Buat Laporan') }}
+            </x-responsive-nav-link>
+
+            @if (Auth::user()?->role === 'admin')
+                <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.dashboard') || request()->routeIs('admin.reports.*')">
+                    {{ __('Panel Admin') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('admin.statistics')" :active="request()->routeIs('admin.statistics')">
+                    {{ __('Statistik Admin') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->

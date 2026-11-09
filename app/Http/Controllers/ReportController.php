@@ -42,21 +42,46 @@ class ReportController extends Controller
 
         $hasil = $ai->analyze($report->foto_path, $report->deskripsi);
 
-        $report->update($hasil ? [
-            'kategori' => $hasil['kategori'],
-            'tingkat_keparahan' => $hasil['tingkat_keparahan'],
-            'ringkasan_ai' => $hasil['ringkasan'],
-            'ai_status' => 'berhasil',
-        ] : ['ai_status' => 'gagal']); // laporan tetap tersimpan, admin isi manual
+        if ($hasil) {
+            $isRelevan = (bool) $hasil['relevan'];
 
-        return redirect()->route('reports.show', $report)->with('status', $hasil
-            ? 'Laporan terkirim dan dianalisis AI.'
-            : 'Laporan terkirim. Analisis AI belum tersedia, admin akan melengkapi.');
+            $updateData = [
+                'relevan' => $isRelevan,
+                'kepercayaan' => $hasil['kepercayaan'],
+                'kategori' => $hasil['kategori'],
+                'tingkat_keparahan' => $hasil['tingkat_keparahan'],
+                'ringkasan_ai' => $hasil['ringkasan'],
+                'ai_status' => 'berhasil',
+            ];
+
+            // Jika foto tidak relevan, status dialihkan ke 'perlu_verifikasi'
+            if (! $isRelevan) {
+                $updateData['status'] = 'perlu_verifikasi';
+            }
+
+            $report->update($updateData);
+
+            $pesan = $isRelevan
+                ? 'Laporan terkirim dan dianalisis AI.'
+                : 'Laporan terkirim, tetapi foto tampak tidak sesuai dan akan diverifikasi admin.';
+        } else {
+            // Laporan tetap tersimpan jika AI gagal, admin akan mengisi manual
+            $report->update([
+                'ai_status' => 'gagal',
+            ]);
+
+            $pesan = 'Laporan terkirim. Analisis AI belum tersedia, admin akan melengkapi.';
+        }
+
+        return redirect()->route('reports.show', $report)->with('status', $pesan);
     }
 
     public function show(Report $report)
     {
         Gate::authorize('view', $report);
+
+        // Muat log status urut waktu terlama ke terbaru untuk timeline
+        $report->load(['logs' => fn ($query) => $query->oldest()]);
 
         return view('reports.show', compact('report'));
     }
