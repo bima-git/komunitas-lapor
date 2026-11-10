@@ -70,7 +70,7 @@ class AiAnalyzer
 
             try {
                 $res = Http::withHeaders(['x-goog-api-key' => config('services.gemini.key')])
-                    ->timeout(30)
+                    ->timeout(15)
                     ->post($url, $body);
 
                 // 404 (tidak ditemukan), 429 (kuota habis), 500/502 (server error), 503 (layanan sibuk):
@@ -107,9 +107,10 @@ class AiAnalyzer
                     'validasi' => $res->ok() ? $v->errors()->all() : [],
                 ]);
             } catch (\Throwable $e) {
-                Log::warning("AI analyze gagal pada model {$model}: ".$e->getMessage(), [
+                Log::warning("AI analyze gagal/timeout pada model {$model}: ".$e->getMessage(), [
                     'model' => $model,
                 ]);
+                continue;
             }
         }
 
