@@ -60,7 +60,7 @@ Aplikasi menggunakan service `AiAnalyzer` yang berkomunikasi dengan API Google G
 *Catatan:* Jika foto berada di area pembuangan resmi (TPS/TPA), keparahan diturunkan maksimal 3.
 
 ### Penanda Relevansi & Kesesuaian Foto vs Deskripsi
-- Evaluasi relevansi dilakukan secara deterministik (`temperature = 0`) melalui dua tahap:
+- Evaluasi relevansi dilakukan secara lebih konsisten (`temperature = 0`) melalui dua tahap:
   1. `foto_menunjukkan_sampah`: Bernilai `true` jika foto menampakkan sampah liar.
   2. `sesuai_deskripsi`: Bernilai `false` HANYA jika deskripsi warga jelas membahas masalah lain yang tidak terlihat di foto (misalnya trotoar rusak, jalan berlubang). Deskripsi kosong, singkat, atau netral (misalnya *"iya"*, *"tolong dibersihkan"*) bernilai `true`. Jika bernilai `false`, alasan AI secara spesifik menyebutkan apa yang terlihat di foto dan apa yang diklaim deskripsi.
 - Status relevansi akhir dihitung di kode aplikasi: `relevan = foto_menunjukkan_sampah && sesuai_deskripsi`.
