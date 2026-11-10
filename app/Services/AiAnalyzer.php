@@ -19,6 +19,12 @@ class AiAnalyzer
         $kategori = config('domain.kategori');
         $disk = Storage::disk('public');
 
+        if (! $disk->exists($fotoPath)) {
+            Log::warning("File foto laporan tidak ditemukan pada disk public: {$fotoPath}");
+
+            return null;
+        }
+
         $body = [
             'contents' => [[
                 'parts' => [

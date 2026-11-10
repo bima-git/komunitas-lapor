@@ -10,8 +10,9 @@ Pengembangan fitur-fitur berikut diimplementasikan dan diverifikasi dengan bantu
 
 ### a. Dashboard Admin (`/admin`)
 - **Peta Sebaran Titik Sampah Leaflet:** Visualisasi titik lokasi laporan dengan warna marker yang mencerminkan tingkat keparahan (memperhitungkan koreksi admin).
-- **Tabel & Filter Laporan:** Penyaringan laporan berdasarkan status, kategori, keparahan, dan validasi relevansi.
+- **Tabel & Filter Laporan:** Penyaringan laporan berdasarkan status, kategori, keparahan, relevansi AI, dan status keberhasilan AI (`ai_status`).
 - **Form Verifikasi & Koreksi Admin:** Memungkinkan admin mengoreksi kategori (dari `config/domain.php`) dan keparahan tanpa menimpa data rekomendasi AI asli (`kategori_admin`, `keparahan_admin`, `dikoreksi_oleh`).
+- **Penanda AI Gagal & Fitur Analisis Ulang:** Deteksi visual laporan `ai_status = 'gagal'` dan tombol aksi bagi admin untuk memicu ulang analisis AI sewaktu-waktu.
 
 ### b. Riwayat Status Laporan (Timeline)
 - **Tabel `status_logs` & Migrasi `tampil_ke_pelapor`:** Penambahan opsi privasi agar admin dapat memilih apakah catatan petugas ditampilkan ke pelapor atau disimpan sebagai catatan internal.
@@ -39,4 +40,4 @@ Aplikasi mengintegrasikan model Gemini (`AiAnalyzer`) untuk menganalisis laporan
 - **Analisis Relevansi & Kesesuaian Terpisah:** Model menghasilkan dua indikator boolean terpisah dengan konfigurasi suhu nol (`temperature = 0`) agar evaluasi lebih konsisten: `foto_menunjukkan_sampah` (apakah ada sampah di foto) dan `sesuai_deskripsi` (false hanya jika deskripsi warga jelas membahas masalah lain yang tidak terlihat di foto seperti jalan/trotoar rusak; deskripsi netral atau singkat bernilai true). Nilai `relevan` dihitung langsung di kode aplikasi (`relevan = foto_menunjukkan_sampah && sesuai_deskripsi`), dan jika tidak sesuai alasan AI diinstruksikan untuk secara transparan menyebutkan isi foto dan apa yang diklaim oleh deskripsi warga.
 - **Saran Klasifikasi & Keparahan:** Menyarankan kategori sampah (sesuai domain di `config/domain.php`), tingkat keparahan (skala 1–5), dan ringkasan singkat maksimal 2 kalimat.
 - **Model Cadangan Otomatis (Fallback Models):** Mendukung daftar model berurutan melalui `GEMINI_MODELS` (misal `gemini-3.5-flash-lite,gemini-3.8-flash`). Jika model utama mengalami kendala (HTTP 404, 429, 500, 502, atau 503), atau connection timeout, sistem langsung berpindah ke model cadangan secara otomatis tanpa jeda lama.
-- **Fallback Keandalan:** Jika seluruh model AI mengalami kendala atau gagal merespons, laporan tetap tersimpan dengan `ai_status = 'gagal'` dan status dialihkan ke verifikasi admin tanpa menghilangkan data warga.
+- **Fallback Keandalan & Analisis Ulang Admin:** Jika seluruh model AI mengalami kendala atau gagal merespons, laporan tetap tersimpan dengan `ai_status = 'gagal'` dan status dialihkan ke verifikasi admin tanpa menghilangkan data warga. Admin dapat memicu pemrosesan ulang AI kapan saja melalui tombol *"Analisis Ulang AI"* di panel admin.

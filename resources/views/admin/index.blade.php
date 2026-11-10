@@ -38,7 +38,7 @@
 
         {{-- Filter Box --}}
         <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-            <form method="GET" action="{{ route('admin.dashboard') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            <form method="GET" action="{{ route('admin.dashboard') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {{-- Filter Status --}}
                 <div>
                     <label for="status" class="block text-xs font-medium text-gray-700 mb-1">Status</label>
@@ -85,6 +85,16 @@
                         <option value="">Semua</option>
                         <option value="1" {{ request('relevan') === '1' ? 'selected' : '' }}>Relevan</option>
                         <option value="0" {{ request('relevan') === '0' ? 'selected' : '' }}>Tidak Relevan</option>
+                    </select>
+                </div>
+
+                {{-- Filter Status AI --}}
+                <div>
+                    <label for="ai_status" class="block text-xs font-medium text-gray-700 mb-1">Status AI</label>
+                    <select id="ai_status" name="ai_status" class="w-full text-xs border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Semua</option>
+                        <option value="berhasil" {{ request('ai_status') === 'berhasil' ? 'selected' : '' }}>AI Berhasil</option>
+                        <option value="gagal" {{ request('ai_status') === 'gagal' ? 'selected' : '' }}>AI Gagal</option>
                     </select>
                 </div>
 
@@ -163,7 +173,9 @@
                                             </span>
                                         @endif
                                     @else
-                                        <span class="text-gray-400 italic text-[11px]">AI Gagal</span>
+                                        <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-800 border border-red-200">
+                                            AI Gagal
+                                        </span>
                                     @endif
                                 </td>
                                 <td class="p-3.5 whitespace-nowrap">

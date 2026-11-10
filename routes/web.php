@@ -33,6 +33,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/statistik', [AdminStatisticsController::class, 'index'])->name('statistics');
     Route::get('/laporan/{report}', [AdminReportController::class, 'show'])->name('reports.show');
     Route::patch('/laporan/{report}/status', [AdminReportController::class, 'updateStatus'])->name('reports.updateStatus');
+    Route::post('/laporan/{report}/analisis-ulang', [AdminReportController::class, 'reanalyze'])->name('reports.reanalyze');
 });
 
 require __DIR__.'/auth.php';

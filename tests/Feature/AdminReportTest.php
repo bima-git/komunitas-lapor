@@ -249,4 +249,147 @@ class AdminReportTest extends TestCase
         // Laporan A (efektif 5) harus muncul sebelum Laporan B (efektif 4)
         $this->assertLessThan($posB, $posA);
     }
+
+    public function test_admin_dapat_memicu_analisis_ulang_ai_dan_memperbarui_laporan(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $warga = User::factory()->create(['role' => 'warga']);
+
+        $report = Report::create([
+            'user_id' => $warga->id,
+            'judul' => 'Laporan Gagal AI Sebelumnya',
+            'deskripsi' => 'Banyak plastik di selokan',
+            'foto_path' => 'reports/failed.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'status' => 'baru',
+            'ai_status' => 'gagal',
+        ]);
+
+        $mockAi = $this->createMock(\App\Services\AiAnalyzer::class);
+        $mockAi->method('analyze')->willReturn([
+            'foto_menunjukkan_sampah' => true,
+            'sesuai_deskripsi' => true,
+            'relevan' => true,
+            'kepercayaan' => 95,
+            'kategori' => 'sampah_plastik',
+            'tingkat_keparahan' => 4,
+            'ringkasan' => 'Ditemukan tumpukan plastik menyumbat saluran.',
+            'alasan' => 'Foto dan deskripsi sesuai.',
+        ]);
+        $this->app->instance(\App\Services\AiAnalyzer::class, $mockAi);
+
+        $res = $this->actingAs($admin)->post(route('admin.reports.reanalyze', $report));
+
+        $res->assertRedirect(route('admin.reports.show', $report));
+        $res->assertSessionHas('status', "Laporan #{$report->id} berhasil dianalisis ulang oleh AI.");
+
+        $report->refresh();
+        $this->assertEquals('berhasil', $report->ai_status);
+        $this->assertTrue($report->relevan);
+        $this->assertEquals(95, $report->kepercayaan);
+        $this->assertEquals('sampah_plastik', $report->kategori);
+        $this->assertEquals(4, $report->tingkat_keparahan);
+        $this->assertEquals('Ditemukan tumpukan plastik menyumbat saluran.', $report->ringkasan_ai);
+    }
+
+    public function test_analisis_ulang_ai_gagal_tetap_menjaga_ai_status_gagal_dan_menampilkan_pesan_warning(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $warga = User::factory()->create(['role' => 'warga']);
+
+        $report = Report::create([
+            'user_id' => $warga->id,
+            'judul' => 'Laporan Kuota Habis',
+            'foto_path' => 'reports/failed2.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'status' => 'baru',
+            'ai_status' => 'gagal',
+        ]);
+
+        $mockAi = $this->createMock(\App\Services\AiAnalyzer::class);
+        $mockAi->method('analyze')->willReturn(null);
+        $this->app->instance(\App\Services\AiAnalyzer::class, $mockAi);
+
+        $res = $this->actingAs($admin)->post(route('admin.reports.reanalyze', $report));
+
+        $res->assertRedirect(route('admin.reports.show', $report));
+        $res->assertSessionHas('warning');
+
+        $report->refresh();
+        $this->assertEquals('gagal', $report->ai_status);
+    }
+
+    public function test_warga_tidak_bisa_memicu_analisis_ulang_ai(): void
+    {
+        $warga = User::factory()->create(['role' => 'warga']);
+
+        $report = Report::create([
+            'user_id' => $warga->id,
+            'judul' => 'Laporan Warga',
+            'foto_path' => 'reports/user.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'status' => 'baru',
+            'ai_status' => 'gagal',
+        ]);
+
+        $res = $this->actingAs($warga)->post(route('admin.reports.reanalyze', $report));
+
+        $res->assertForbidden();
+    }
+
+    public function test_admin_dapat_memfilter_laporan_berdasarkan_ai_status(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $warga = User::factory()->create(['role' => 'warga']);
+
+        $reportGagal = Report::create([
+            'user_id' => $warga->id,
+            'judul' => 'Laporan Gagal AI',
+            'foto_path' => 'reports/gagal.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'status' => 'baru',
+            'ai_status' => 'gagal',
+        ]);
+
+        $reportBerhasil = Report::create([
+            'user_id' => $warga->id,
+            'judul' => 'Laporan Berhasil AI',
+            'foto_path' => 'reports/berhasil.jpg',
+            'lat' => -6.9180,
+            'lng' => 107.6200,
+            'status' => 'baru',
+            'ai_status' => 'berhasil',
+            'relevan' => true,
+        ]);
+
+        $res = $this->actingAs($admin)->get(route('admin.dashboard', ['ai_status' => 'gagal']));
+        $res->assertOk();
+        $res->assertSee('Laporan Gagal AI');
+        $res->assertDontSee('Laporan Berhasil AI');
+    }
+
+    public function test_tampilan_detail_admin_menampilkan_penanda_ai_gagal_dan_tombol_analisis_ulang(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $warga = User::factory()->create(['role' => 'warga']);
+
+        $report = Report::create([
+            'user_id' => $warga->id,
+            'judul' => 'Laporan Gagal Menunggu Ulang',
+            'foto_path' => 'reports/wait.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'status' => 'baru',
+            'ai_status' => 'gagal',
+        ]);
+
+        $res = $this->actingAs($admin)->get(route('admin.reports.show', $report));
+        $res->assertOk();
+        $res->assertSee('Analisis AI Belum Tersedia (AI Gagal)');
+        $res->assertSee('Analisis Ulang AI');
+    }
 }

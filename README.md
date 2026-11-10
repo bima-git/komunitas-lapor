@@ -17,9 +17,10 @@ Aplikasi ini mengatasi kendala klasik pelaporan manual: laporan sampah yang menu
 - **Akses Mandiri Terproteksi:** Setiap warga hanya dapat mengakses dan melihat rincian laporannya sendiri (`ReportPolicy`).
 
 ### Untuk Admin & Petugas Kebersihan
-- **Dashboard Pemantauan & Verifikasi (`/admin`):** Tabel pemantauan seluruh laporan masuk dengan filter dinamis (status, kategori, tingkat keparahan, dan relevansi). Pengurutan default memprioritaskan tingkat keparahan tertinggi.
+- **Dashboard Pemantauan & Verifikasi (`/admin`):** Tabel pemantauan seluruh laporan masuk dengan filter dinamis (status, kategori, tingkat keparahan, relevansi AI, dan status AI). Pengurutan default memprioritaskan tingkat keparahan tertinggi.
 - **Peta Sebaran Titik Sampah:** Visualisasi spasial seluruh titik laporan dengan penanda (*marker*) berwarna yang merefleksikan tingkat keparahan lapangan.
 - **Verifikasi & Koreksi Admin:** Formulir penyesuaian status, validasi relevansi, serta koreksi kategori dan keparahan tanpa menimpa data rekomendasi AI asli (`kategori_admin`, `keparahan_admin`, `dikoreksi_oleh`).
+- **Penanda `ai_status = gagal` & Tombol Analisis Ulang AI:** Deteksi visual laporan yang gagal dianalisis AI (akibat kuota harian habis atau gangguan jaringan) dengan badge khusus dan filter `ai_status`, disertai tombol aksi *Analisis Ulang AI* pada halaman detail untuk memproses ulang kapan saja.
 - **Pengaturan Privasi Catatan:** Admin dapat menentukan apakah catatan tindak lanjut dapat dibaca oleh pelapor (`tampil_ke_pelapor`) atau hanya sebagai catatan audit internal.
 - **Dashboard Kinerja & Statistik (`/admin/statistik`):**
   - Kartu ringkasan metrik KPI (Total, Baru, Diproses, Perlu Verifikasi, Selesai, dan Persentase).
@@ -181,11 +182,11 @@ Aplikasi dilengkapi dengan rangkaian pengujian komprehensif (*unit & feature tes
 php artisan test
 ```
 
-### Cakupan Pengujian (64 Tests, 275 Assertions):
+### Cakupan Pengujian (69 Tests, 295 Assertions):
 - **Alur Pelaporan (`ReportTest`):** Pembuatan laporan warga, analisis multimodal AI, fallback kegagalan API, penolakan berkas non-gambar, pengecilan foto $\le$ 1280 px, fallback jika resize gagal, perlindungan throttle, dan proteksi hak akses `ReportPolicy`.
 - **Evaluasi AI & Relevansi (`AiAnalyzerTest`):** Pengujian kesesuaian foto vs deskripsi via `Http::fake` (foto sampah + deskripsi tidak sesuai, foto bukan sampah, keduanya sesuai, dan deskripsi netral).
 - **Model Cadangan AI (`AiAnalyzerFallbackTest`):** Mocking via `Http::fake` untuk memastikan transisi saat model pertama merespons 404, 429, 500, 502, 503, hingga kepastian alur laporan tetap berhasil tersimpan.
-- **Panel Admin (`AdminReportTest`):** Hak akses otorisasi admin (warga 403), filter tabel multi-kriteria, penandaan peta Leaflet, serta verifikasi dan koreksi admin tanpa menimpa saran AI asli.
+- **Panel Admin (`AdminReportTest`):** Hak akses otorisasi admin (warga 403), filter tabel multi-kriteria (termasuk `ai_status`), penandaan peta Leaflet, verifikasi dan koreksi admin tanpa menimpa saran AI asli, penanda visual `ai_status = gagal`, serta aksi analisis ulang AI (`reports.reanalyze`).
 - **Riwayat Status (`ReportTimelineTest`):** Tampilan linimasa urut waktu, penyamaran identitas admin ("Admin"), serta pemisahan catatan publik vs internal.
 - **Halaman Statistik (`AdminStatisticsTest`):** Penghitungan kartu KPI, rata-rata durasi penyelesaian di tingkat SQL, pengujian grafik kategori efektif, grafik mingguan 8 minggu terakhir, serta ketahanan halaman saat belum ada data.
 

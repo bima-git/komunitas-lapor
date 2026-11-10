@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Report;
+use App\Services\AiAnalyzer;
 use Illuminate\Http\Request;
 
 class AdminReportController extends Controller
@@ -49,13 +50,18 @@ class AdminReportController extends Controller
             $query->where('relevan', $request->relevan === '1');
         }
 
+        // Filter status AI (berhasil / gagal)
+        if ($request->filled('ai_status')) {
+            $query->where('ai_status', $request->ai_status);
+        }
+
         // Kloning query untuk data titik peta sebelum dipaginasi
         $mapReports = (clone $query)
             ->select([
                 'id', 'judul', 'lat', 'lng',
                 'tingkat_keparahan', 'keparahan_admin',
                 'kategori', 'kategori_admin',
-                'status', 'relevan'
+                'status', 'relevan', 'ai_status'
             ])
             ->get();
 
@@ -125,5 +131,41 @@ class AdminReportController extends Controller
 
         return redirect()->route('admin.reports.show', $report)
             ->with('status', 'Status dan koreksi laporan berhasil disimpan.');
+    }
+
+    /**
+     * Jalankan analisis ulang AI untuk laporan tertentu (misal ketika sebelumnya ai_status = gagal).
+     */
+    public function reanalyze(Report $report, AiAnalyzer $ai)
+    {
+        $hasil = $ai->analyze($report->foto_path, $report->deskripsi);
+
+        if ($hasil) {
+            $isRelevan = (bool) $hasil['relevan'];
+
+            $updateData = [
+                'relevan' => $isRelevan,
+                'kepercayaan' => $hasil['kepercayaan'],
+                'kategori' => $hasil['kategori'],
+                'tingkat_keparahan' => $hasil['tingkat_keparahan'],
+                'ringkasan_ai' => $hasil['ringkasan'],
+                'ai_status' => 'berhasil',
+            ];
+
+            // Jika status masih baru dan dinilai tidak relevan, ubah menjadi perlu_verifikasi
+            if (! $isRelevan && $report->status === 'baru') {
+                $updateData['status'] = 'perlu_verifikasi';
+            }
+
+            $report->update($updateData);
+
+            return redirect()->route('admin.reports.show', $report)
+                ->with('status', "Laporan #{$report->id} berhasil dianalisis ulang oleh AI.");
+        }
+
+        $report->update(['ai_status' => 'gagal']);
+
+        return redirect()->route('admin.reports.show', $report)
+            ->with('warning', 'Analisis ulang AI belum berhasil (seluruh model AI sedang sibuk atau kuota harian habis). Silakan coba lagi nanti.');
     }
 }

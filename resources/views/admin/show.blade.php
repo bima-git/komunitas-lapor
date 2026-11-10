@@ -28,6 +28,36 @@
             </div>
         @endif
 
+        @if (session('warning'))
+            <div class="p-4 rounded-xl text-sm bg-red-50 text-red-800 border border-red-200 flex items-center justify-between shadow-sm">
+                <span>{{ session('warning') }}</span>
+            </div>
+        @endif
+
+        {{-- Banner jika AI Gagal Memproses --}}
+        @if ($report->ai_status === 'gagal')
+            <div class="p-4 rounded-xl bg-red-50 border border-red-300 text-red-900 text-sm shadow-sm flex items-start justify-between gap-4">
+                <div class="flex items-start gap-3">
+                    <span class="text-xl">⚠️</span>
+                    <div>
+                        <h4 class="font-semibold text-red-900">Analisis AI Belum Tersedia (AI Gagal)</h4>
+                        <p class="text-xs text-red-700 mt-0.5">
+                            Laporan ini tidak berhasil dianalisis oleh AI saat dikirim (kemungkinan kuota API Gemini habis atau gangguan koneksi). Silakan jalankan analisis ulang sekarang menggunakan tombol di samping, atau lengkapi verifikasi secara manual.
+                        </p>
+                    </div>
+                </div>
+                <form method="POST" action="{{ route('admin.reports.reanalyze', $report) }}">
+                    @csrf
+                    <button type="submit" class="whitespace-nowrap bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-2 px-3.5 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Analisis Ulang AI &rarr;
+                    </button>
+                </form>
+            </div>
+        @endif
+
         {{-- Banner Peringatan jika Perlu Verifikasi / Tidak Relevan --}}
         @if ($report->relevan === false || $report->status === 'perlu_verifikasi')
             <div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm shadow-sm flex items-start gap-3">
@@ -95,8 +125,8 @@
                             <div class="text-xs space-y-1">
                                 <div class="flex items-center justify-between py-1 border-b border-gray-200">
                                     <span class="text-gray-500 font-medium">Saran AI:</span>
-                                    <span class="font-semibold text-gray-800">
-                                        {{ ucwords(str_replace('_', ' ', $report->kategori ?: '-')) }}
+                                    <span class="font-semibold {{ $report->ai_status === 'gagal' ? 'text-red-600 italic text-[11px]' : 'text-gray-800' }}">
+                                        {{ $report->ai_status === 'gagal' ? 'AI Gagal' : ucwords(str_replace('_', ' ', $report->kategori ?: '-')) }}
                                     </span>
                                 </div>
                                 <div class="flex items-center justify-between py-1">
@@ -118,8 +148,8 @@
                             <div class="text-xs space-y-1">
                                 <div class="flex items-center justify-between py-1 border-b border-gray-200">
                                     <span class="text-gray-500 font-medium">Saran AI:</span>
-                                    <span class="font-semibold text-gray-800">
-                                        {{ $report->tingkat_keparahan ? $report->tingkat_keparahan . ' / 5' : '-' }}
+                                    <span class="font-semibold {{ $report->ai_status === 'gagal' ? 'text-red-600 italic text-[11px]' : 'text-gray-800' }}">
+                                        {{ $report->ai_status === 'gagal' ? 'AI Gagal' : ($report->tingkat_keparahan ? $report->tingkat_keparahan . ' / 5' : '-') }}
                                     </span>
                                 </div>
                                 <div class="flex items-center justify-between py-1">
@@ -143,22 +173,47 @@
                     @endif
 
                     {{-- Detail Lengkap Analisis AI --}}
-                    <div class="pt-2 border-t space-y-2">
+                    <div class="pt-2 border-t space-y-3">
                         <div class="flex items-center justify-between text-xs">
                             <span class="font-semibold text-gray-700">Analisis Relevansi AI:</span>
-                            <span class="font-semibold {{ $report->relevan ? 'text-green-700' : 'text-red-700' }}">
-                                {{ $report->relevan ? 'Relevan' : 'Tidak Relevan' }}
-                                @if ($report->kepercayaan !== null)
-                                    <span class="text-gray-500 font-normal">({{ $report->kepercayaan }}% yakin)</span>
-                                @endif
-                            </span>
+                            @if ($report->ai_status === 'berhasil')
+                                <span class="font-semibold {{ $report->relevan ? 'text-green-700' : 'text-red-700' }}">
+                                    {{ $report->relevan ? 'Relevan' : 'Tidak Relevan' }}
+                                    @if ($report->kepercayaan !== null)
+                                        <span class="text-gray-500 font-normal">({{ $report->kepercayaan }}% yakin)</span>
+                                    @endif
+                                </span>
+                            @else
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-800 border border-red-200">
+                                    Gagal Diproses
+                                </span>
+                            @endif
                         </div>
-                        @if ($report->ringkasan_ai)
+
+                        @if ($report->ai_status === 'berhasil' && $report->ringkasan_ai)
                             <div class="bg-blue-50/60 border border-blue-100 p-3 rounded-lg text-xs text-blue-900">
                                 <strong class="block mb-0.5">Ringkasan AI:</strong>
                                 <p>{{ $report->ringkasan_ai }}</p>
                             </div>
+                        @elseif ($report->ai_status === 'gagal')
+                            <div class="bg-red-50 border border-red-200 p-3 rounded-lg text-xs text-red-900 space-y-1">
+                                <strong class="block font-semibold">Status AI: Gagal Memproses</strong>
+                                <p class="text-red-700">Analisis otomatis belum tersedia untuk laporan ini (kemungkinan karena kuota API Gemini habis atau gangguan koneksi saat pengiriman awal).</p>
+                            </div>
                         @endif
+
+                        {{-- Tombol Analisis Ulang AI --}}
+                        <div class="pt-1 flex items-center justify-end">
+                            <form method="POST" action="{{ route('admin.reports.reanalyze', $report) }}" onsubmit="return confirm('Jalankan analisis ulang AI untuk laporan ini?');">
+                                @csrf
+                                <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg shadow-sm transition {{ $report->ai_status === 'gagal' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300' }}">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    {{ $report->ai_status === 'gagal' ? 'Analisis Ulang AI Sekarang' : 'Analisis Ulang AI' }}
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
 
