@@ -48,7 +48,8 @@ class AiAnalyzerFallbackTest extends TestCase
                             'parts' => [
                                 [
                                     'text' => json_encode([
-                                        'relevan' => true,
+                                        'foto_menunjukkan_sampah' => true,
+                                        'sesuai_deskripsi' => true,
                                         'kepercayaan' => 95,
                                         'kategori' => 'sampah_plastik',
                                         'tingkat_keparahan' => 3,
@@ -131,7 +132,8 @@ class AiAnalyzerFallbackTest extends TestCase
                             'parts' => [
                                 [
                                     'text' => json_encode([
-                                        'relevan' => false,
+                                        'foto_menunjukkan_sampah' => false,
+                                        'sesuai_deskripsi' => true,
                                         'kepercayaan' => 80,
                                         'kategori' => 'lainnya',
                                         'tingkat_keparahan' => 1,
@@ -179,7 +181,8 @@ class AiAnalyzerFallbackTest extends TestCase
                             'parts' => [
                                 [
                                     'text' => json_encode([
-                                        'relevan' => true,
+                                        'foto_menunjukkan_sampah' => true,
+                                        'sesuai_deskripsi' => true,
                                         'kepercayaan' => 90,
                                         'kategori' => 'sampah_organik',
                                         'tingkat_keparahan' => 2,
@@ -227,7 +230,8 @@ class AiAnalyzerFallbackTest extends TestCase
                             'parts' => [
                                 [
                                     'text' => json_encode([
-                                        'relevan' => true,
+                                        'foto_menunjukkan_sampah' => true,
+                                        'sesuai_deskripsi' => true,
                                         'kepercayaan' => 88,
                                         'kategori' => 'sampah_organik',
                                         'tingkat_keparahan' => 2,

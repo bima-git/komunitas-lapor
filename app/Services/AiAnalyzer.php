@@ -12,7 +12,7 @@ class AiAnalyzer
     /**
      * Analisis foto dan deskripsi menggunakan Gemini Multimodal.
      *
-     * @return array{relevan:bool,kepercayaan:int,kategori:string,tingkat_keparahan:int,ringkasan:string,alasan:string}|null
+     * @return array{relevan:bool,foto_menunjukkan_sampah:bool,sesuai_deskripsi:bool,kepercayaan:int,kategori:string,tingkat_keparahan:int,ringkasan:string,alasan:string}|null
      */
     public function analyze(string $fotoPath, ?string $deskripsi): ?array
     {
@@ -31,25 +31,38 @@ class AiAnalyzer
             ]],
             'generationConfig' => [
                 'responseMimeType' => 'application/json',
+                'temperature' => 0,
                 // Deskripsi properti ditaruh DI SINI (petunjuk untuk model), bukan di Validator.
                 'responseSchema' => [
                     'type' => 'OBJECT',
                     'properties' => [
-                        'relevan' => [
+                        'foto_menunjukkan_sampah' => [
                             'type' => 'BOOLEAN',
-                            'description' => 'true jika foto menunjukkan sampah dan sesuai deskripsi warga.',
+                            'description' => 'true jika foto menampakkan sampah.',
+                        ],
+                        'sesuai_deskripsi' => [
+                            'type' => 'BOOLEAN',
+                            'description' => 'false HANYA jika deskripsi warga jelas membahas masalah lain yang tidak terlihat di foto (misalnya trotoar rusak, jalan berlubang). Deskripsi kosong, singkat, atau netral (misalnya "iya", "tolong dibersihkan") bernilai true.',
                         ],
                         'kepercayaan' => [
                             'type' => 'INTEGER',
-                            'description' => 'Keyakinan 0-100 bahwa nilai relevan benar. Foto sampah yang jelas = 80-100. '
-                                .'Nilai rendah hanya jika foto gelap, buram, atau ambigu. Ini BUKAN skor keparahan.',
+                            'description' => 'Keyakinan 0-100 bahwa penilaian foto_menunjukkan_sampah dan sesuai_deskripsi benar. '
+                                .'Foto sampah yang jelas = 80-100. Nilai rendah hanya jika foto gelap, buram, atau ambigu. Ini BUKAN skor keparahan.',
                         ],
                         'kategori' => ['type' => 'STRING', 'enum' => $kategori],
                         'tingkat_keparahan' => ['type' => 'INTEGER'],
                         'ringkasan' => ['type' => 'STRING'],
                         'alasan' => ['type' => 'STRING'],
                     ],
-                    'required' => ['relevan', 'kepercayaan', 'kategori', 'tingkat_keparahan', 'ringkasan', 'alasan'],
+                    'required' => [
+                        'foto_menunjukkan_sampah',
+                        'sesuai_deskripsi',
+                        'kepercayaan',
+                        'kategori',
+                        'tingkat_keparahan',
+                        'ringkasan',
+                        'alasan',
+                    ],
                 ],
             ],
         ];
@@ -86,7 +99,8 @@ class AiAnalyzer
                 $json = json_decode($res->json('candidates.0.content.parts.0.text', ''), true);
 
                 $v = Validator::make($json ?? [], [
-                    'relevan' => ['required', 'boolean'],
+                    'foto_menunjukkan_sampah' => ['required', 'boolean'],
+                    'sesuai_deskripsi' => ['required', 'boolean'],
                     'kepercayaan' => ['required', 'integer', 'between:0,100'],
                     'kategori' => ['required', 'in:'.implode(',', $kategori)],
                     'tingkat_keparahan' => ['required', 'integer', 'between:1,5'],
@@ -97,7 +111,10 @@ class AiAnalyzer
                 if ($res->ok() && ! $v->fails()) {
                     Log::info("AI analisis berhasil menggunakan model {$model}.", ['model' => $model]);
 
-                    return $v->validated();
+                    $validated = $v->validated();
+                    $validated['relevan'] = (bool) ($validated['foto_menunjukkan_sampah'] && $validated['sesuai_deskripsi']);
+
+                    return $validated;
                 }
 
                 Log::warning("AI respons dari model {$model} tidak dipakai atau validasi gagal", [

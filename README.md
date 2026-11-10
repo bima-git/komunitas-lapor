@@ -41,7 +41,8 @@ Aplikasi menggunakan service `AiAnalyzer` yang berkomunikasi dengan API Google G
 ### Keluaran JSON Terstruktur
 ```json
 {
-  "relevan": true,
+  "foto_menunjukkan_sampah": true,
+  "sesuai_deskripsi": true,
   "kepercayaan": 95,
   "kategori": "sampah_plastik",
   "tingkat_keparahan": 4,
@@ -58,9 +59,12 @@ Aplikasi menggunakan service `AiAnalyzer` yang berkomunikasi dengan API Google G
 5. **Tingkat 5 (Sangat Mendesak / Darurat):** Tumpukan sangat masif yang membahayakan kesehatan masyarakat atau mencemari badan air/permukiman.
 *Catatan:* Jika foto berada di area pembuangan resmi (TPS/TPA), keparahan diturunkan maksimal 3.
 
-### Penanda Relevansi
-- Jika foto bukan sampah, buram/gelap, atau deskripsi bertentangan dengan isi gambar, model mengembalikan `relevan = false`.
-- Sistem otomatis mengalihkan status laporan menjadi `perlu_verifikasi`, kategori menjadi `lainnya`, keparahan diset ke `1`, dan menampilkan pesan ramah: *"Foto dan deskripsi tampak tidak sesuai. Laporan ini akan diverifikasi admin."*
+### Penanda Relevansi & Kesesuaian Foto vs Deskripsi
+- Evaluasi relevansi dilakukan secara deterministik (`temperature = 0`) melalui dua tahap:
+  1. `foto_menunjukkan_sampah`: Bernilai `true` jika foto menampakkan sampah liar.
+  2. `sesuai_deskripsi`: Bernilai `false` HANYA jika deskripsi warga jelas membahas masalah lain yang tidak terlihat di foto (misalnya trotoar rusak, jalan berlubang). Deskripsi kosong, singkat, atau netral (misalnya *"iya"*, *"tolong dibersihkan"*) bernilai `true`. Jika bernilai `false`, alasan AI secara spesifik menyebutkan apa yang terlihat di foto dan apa yang diklaim deskripsi.
+- Status relevansi akhir dihitung di kode aplikasi: `relevan = foto_menunjukkan_sampah && sesuai_deskripsi`.
+- Jika `relevan = false`, sistem otomatis mengalihkan status laporan menjadi `perlu_verifikasi`, kategori menjadi `lainnya`, keparahan diset ke `1`, dan menampilkan pesan ramah: *"Foto dan deskripsi tampak tidak sesuai. Laporan ini akan diverifikasi admin."*
 
 ### Ketahanan Kuota & Model Cadangan (Multi-Model Fallback)
 Aplikasi mendukung daftar model berurutan melalui konfigurasi `GEMINI_MODELS` (contoh: `gemini-3.5-flash-lite,gemini-3.8-flash`):
@@ -177,8 +181,9 @@ Aplikasi dilengkapi dengan rangkaian pengujian komprehensif (*unit & feature tes
 php artisan test
 ```
 
-### Cakupan Pengujian (59 Tests, 247 Assertions):
+### Cakupan Pengujian (64 Tests, 275 Assertions):
 - **Alur Pelaporan (`ReportTest`):** Pembuatan laporan warga, analisis multimodal AI, fallback kegagalan API, penolakan berkas non-gambar, pengecilan foto $\le$ 1280 px, fallback jika resize gagal, perlindungan throttle, dan proteksi hak akses `ReportPolicy`.
+- **Evaluasi AI & Relevansi (`AiAnalyzerTest`):** Pengujian kesesuaian foto vs deskripsi via `Http::fake` (foto sampah + deskripsi tidak sesuai, foto bukan sampah, keduanya sesuai, dan deskripsi netral).
 - **Model Cadangan AI (`AiAnalyzerFallbackTest`):** Mocking via `Http::fake` untuk memastikan transisi saat model pertama merespons 404, 429, 500, 502, 503, hingga kepastian alur laporan tetap berhasil tersimpan.
 - **Panel Admin (`AdminReportTest`):** Hak akses otorisasi admin (warga 403), filter tabel multi-kriteria, penandaan peta Leaflet, serta verifikasi dan koreksi admin tanpa menimpa saran AI asli.
 - **Riwayat Status (`ReportTimelineTest`):** Tampilan linimasa urut waktu, penyamaran identitas admin ("Admin"), serta pemisahan catatan publik vs internal.

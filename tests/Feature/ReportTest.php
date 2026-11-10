@@ -36,7 +36,8 @@ class ReportTest extends TestCase
                             'parts' => [
                                 [
                                     'text' => json_encode([
-                                        'relevan' => true,
+                                        'foto_menunjukkan_sampah' => true,
+                                        'sesuai_deskripsi' => true,
                                         'kepercayaan' => 95,
                                         'kategori' => 'sampah_plastik',
                                         'tingkat_keparahan' => 3,
