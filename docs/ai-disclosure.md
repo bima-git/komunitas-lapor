@@ -38,5 +38,5 @@ Pengembangan fitur-fitur berikut diimplementasikan dan diverifikasi dengan bantu
 Aplikasi mengintegrasikan model Gemini (`AiAnalyzer`) untuk menganalisis laporan sampah liar yang dikirim oleh warga:
 - **Analisis Relevansi:** Menilai apakah foto menunjukkan sampah liar dan apakah sesuai dengan deskripsi warga (`relevan: true/false`, skor `kepercayaan: 0-100`).
 - **Saran Klasifikasi:** Menyarankan kategori sampah (sesuai domain di `config/domain.php`), tingkat keparahan (skala 1–5), dan ringkasan singkat.
-- **Model Cadangan Otomatis (Fallback Models):** Mendukung daftar model berurutan melalui `GEMINI_MODELS` (misal `gemini-3.8-flash,gemini-3.5-flash-lite`). Jika model utama mengalami kendala (HTTP 404, 429, 500, 502, atau 503), sistem langsung berpindah ke model cadangan tanpa jeda lama.
+- **Model Cadangan Otomatis (Fallback Models):** Mendukung daftar model berurutan melalui `GEMINI_MODELS` (misal `gemini-3.5-flash-lite,gemini-3.8-flash`). Jika model utama mengalami kendala (HTTP 404, 429, 500, 502, atau 503), atau connection timeout, sistem langsung berpindah ke model cadangan secara otomatis tanpa jeda lama.
 - **Fallback Keandalan:** Jika seluruh model AI mengalami kendala atau gagal merespons, laporan tetap tersimpan dengan `ai_status = 'gagal'` dan status dialihkan ke verifikasi admin tanpa menghilangkan data warga.

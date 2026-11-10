@@ -1,66 +1,215 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Komunitas Lapor — Platform Pelaporan Sampah Liar dengan Analisis AI
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Komunitas Lapor** adalah aplikasi web berbasis komunitas untuk mendeteksi, melaporkan, dan memantau penanganan sampah liar secara cepat, transparan, dan terstruktur.
 
-## About Laravel
+Aplikasi ini mengatasi kendala klasik pelaporan manual: laporan sampah yang menumpuk tanpa prioritas yang jelas, foto yang tidak sesuai dengan isi aduan, dan lambatnya respon penanganan. Dengan mengintegrasikan model kecerdasan buatan multimodal (**Google Gemini**), setiap foto dan deskripsi yang dikirim warga langsung dianalisis untuk menilai keabsahan laporan, mendeteksi jenis sampah, serta menentukan tingkat keparahan lokasi secara otomatis.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 1. Fitur Utama
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Untuk Warga (Pelapor)
+- **Pelaporan Berbasis Peta:** Menandai lokasi tumpukan sampah secara presisi menggunakan peta interaktif Leaflet.
+- **Pengecilan Foto Otomatis:** Foto lapangan otomatis diperkecil ukurannya (sisi terpanjang maksimal 1280 px, format JPEG kualitas 80) di sisi server sebelum disimpan dan dianalisis, sehingga hemat kuota dan menjaga orientasi foto ponsel (EXIF).
+- **Analisis AI Instan:** Memperoleh saran kategori, skala keparahan (1–5), ringkasan kondisi, dan evaluasi kesesuaian foto vs deskripsi secara transparan.
+- **Perlindungan Anti-Spam (Rate Limiting):** Pembatasan laju pengiriman laporan yang ramah (maksimal 2 laporan per menit dan 10 per jam). Jika batas terlampaui, isian form tidak hilang dan pengguna menerima pesan informatif.
+- **Timeline Riwayat Status:** Memantau progres penanganan laporan dari awal (*Laporan dikirim*) hingga selesai secara kronologis. Nama pribadi petugas disamarkan demi privasi (ditampilkan sebagai *"Admin"*).
+- **Akses Mandiri Terproteksi:** Setiap warga hanya dapat mengakses dan melihat rincian laporannya sendiri (`ReportPolicy`).
 
-## Learning Laravel
+### Untuk Admin & Petugas Kebersihan
+- **Dashboard Pemantauan & Verifikasi (`/admin`):** Tabel pemantauan seluruh laporan masuk dengan filter dinamis (status, kategori, tingkat keparahan, dan relevansi). Pengurutan default memprioritaskan tingkat keparahan tertinggi.
+- **Peta Sebaran Titik Sampah:** Visualisasi spasial seluruh titik laporan dengan penanda (*marker*) berwarna yang merefleksikan tingkat keparahan lapangan.
+- **Verifikasi & Koreksi Admin:** Formulir penyesuaian status, validasi relevansi, serta koreksi kategori dan keparahan tanpa menimpa data rekomendasi AI asli (`kategori_admin`, `keparahan_admin`, `dikoreksi_oleh`).
+- **Pengaturan Privasi Catatan:** Admin dapat menentukan apakah catatan tindak lanjut dapat dibaca oleh pelapor (`tampil_ke_pelapor`) atau hanya sebagai catatan audit internal.
+- **Dashboard Kinerja & Statistik (`/admin/statistik`):**
+  - Kartu ringkasan metrik KPI (Total, Baru, Diproses, Perlu Verifikasi, Selesai, dan Persentase).
+  - Rata-rata waktu penyelesaian laporan dihitung langsung pada level basis data.
+  - Grafik batang distribusi laporan per kategori efektif.
+  - Grafik garis tren pengaduan masuk selama 8 minggu terakhir (versi Chart.js 4.4.7 terkunci).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## 2. Alur Analisis AI & Ketahanan Sistem
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Aplikasi menggunakan service `AiAnalyzer` yang berkomunikasi dengan API Google Gemini menggunakan format *Structured Outputs*:
 
-## Laravel Sponsors
+### Input Analisis
+- Foto lapangan yang telah dikompresi (JPEG $\le$ 1280 px).
+- Deskripsi teks yang ditulis oleh pelapor.
+- Prompt panduan dan daftar kategori resmi dari `config/domain.php`.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Keluaran JSON Terstruktur
+```json
+{
+  "relevan": true,
+  "kepercayaan": 95,
+  "kategori": "sampah_plastik",
+  "tingkat_keparahan": 4,
+  "ringkasan": "Tumpukan limbah botol dan kantong plastik menutupi bahu jalan.",
+  "alasan": "Foto jelas memperlihatkan tumpukan sampah plastik yang menghalangi akses pejalan kaki."
+}
+```
 
-### Premium Partners
+### Rubrik Tingkat Keparahan (1–5)
+1. **Tingkat 1 (Sangat Rendah):** Tidak ada sampah atau sampah sangat sedikit (hanya 1–2 item kecil).
+2. **Tingkat 2 (Rendah):** Sampah sedikit, tersebar, dan tidak menghalangi fasilitas apa pun.
+3. **Tingkat 3 (Sedang):** Sampah cukup banyak atau terkumpul di satu titik, belum menghalangi akses publik.
+4. **Tingkat 4 (Tinggi):** Tumpukan besar yang menghalangi jalan, menyumbat saluran air, atau berbau/menarik hama.
+5. **Tingkat 5 (Sangat Mendesak / Darurat):** Tumpukan sangat masif yang membahayakan kesehatan masyarakat atau mencemari badan air/permukiman.
+*Catatan:* Jika foto berada di area pembuangan resmi (TPS/TPA), keparahan diturunkan maksimal 3.
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+### Penanda Relevansi
+- Jika foto bukan sampah, buram/gelap, atau deskripsi bertentangan dengan isi gambar, model mengembalikan `relevan = false`.
+- Sistem otomatis mengalihkan status laporan menjadi `perlu_verifikasi`, kategori menjadi `lainnya`, keparahan diset ke `1`, dan menampilkan pesan ramah: *"Foto dan deskripsi tampak tidak sesuai. Laporan ini akan diverifikasi admin."*
 
-## Contributing
+### Ketahanan Kuota & Model Cadangan (Multi-Model Fallback)
+Aplikasi mendukung daftar model berurutan melalui konfigurasi `GEMINI_MODELS` (contoh: `gemini-3.5-flash-lite,gemini-3.8-flash`):
+1. Sistem mencoba model utama terlebih dahulu dengan batas waktu (timeout) 15 detik.
+2. Jika model utama mengalami kendala HTTP `404`, `429` (kuota habis), `500`, `502`, `503` (layanan sibuk), atau kendala koneksi/timeout, sistem **langsung beralih ke model cadangan berikutnya tanpa jeda panjang**.
+3. Jika seluruh model gagal, sistem menjalankan *graceful fallback*: laporan tetap tersimpan di basis data dengan status `ai_status = 'gagal'`, dan admin dapat melengkapi klasifikasi secara manual.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+---
 
-## Code of Conduct
+## 3. Tech Stack
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- **Backend:** Laravel 12 (PHP 8.4)
+- **Autentikasi & Starter Kit:** Laravel Breeze (Blade Components)
+- **Basis Data:** MySQL
+- **Frontend & Styling:** Tailwind CSS, Alpine.js
+- **Peta Interaktif:** Leaflet JS (OpenStreetMap Tiles)
+- **Grafik & Visualisasi Data:** Chart.js v4.4.7
+- **Pengolah Gambar:** Ekstensi PHP GD (bawaan PHP)
+- **Engine AI:** Google Gemini API (Multimodal Structured Outputs)
 
-## Security Vulnerabilities
+---
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## 4. Cara Menjalankan di Lingkungan Lokal
 
-## License
+### Prasyarat
+- PHP $\ge$ 8.4 dengan ekstensi `gd`, `pdo_mysql`, `curl`, `mbstring`, `exif`.
+- Composer $\ge$ 2.x
+- Node.js & NPM
+- MySQL Server
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Langkah Instalasi
+
+1. **Clone repositori:**
+   ```bash
+   git clone https://github.com/bima-git/komunitas-lapor.git
+   cd komunitas-lapor
+   ```
+
+2. **Pasang dependensi PHP dan Node.js:**
+   ```bash
+   composer install
+   npm install
+   ```
+
+3. **Salin berkas konfigurasi lingkungan:**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+4. **Konfigurasi basis data pada berkas `.env`:**
+   Sesuaikan parameter koneksi MySQL Anda:
+   ```env
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_DATABASE=komunitas_lapor
+   DB_USERNAME=root
+   DB_PASSWORD=
+   ```
+
+5. **Konfigurasi Kunci API Gemini pada berkas `.env`:**
+   Dapatkan API Key dari [Google AI Studio](https://aistudio.google.com/):
+   ```env
+   GEMINI_API_KEY=masukkan_kunci_api_anda_di_sini
+   GEMINI_MODEL=gemini-3.5-flash-lite
+   GEMINI_MODELS=gemini-3.5-flash-lite,gemini-3.8-flash
+   ```
+   *(Jangan pernah membagikan atau meng-commit file `.env` yang berisi API key sungguhan).*
+
+6. **Jalankan migrasi basis data dan seeder:**
+   ```bash
+   php artisan migrate --seed
+   ```
+
+7. **Buat symbolic link untuk direktori penyimpanan publik:**
+   ```bash
+   php artisan storage:link
+   ```
+
+8. **Kompilasi aset frontend:**
+   ```bash
+   npm run build
+   # Atau untuk mode pengembangan: npm run dev
+   ```
+
+9. **Jalankan server aplikasi:**
+   ```bash
+   php artisan serve
+   ```
+   Aplikasi dapat diakses melalui browser pada alamat `http://127.0.0.1:8000` (atau port yang ditentukan).
+
+---
+
+## 5. Akun Demo
+
+> [!NOTE]
+> Kredensial akun untuk pengujian dan evaluasi juri:
+
+| Peran (Role) | Email | Password | Keterangan |
+|---|---|---|---|
+| **Admin** | *(akan diisi)* | *(akan diisi)* | Akses penuh ke Dashboard Admin (`/admin`) dan Statistik (`/admin/statistik`) |
+| **Warga** | *(akan diisi)* | *(akan diisi)* | Akses pelaporan, daftar laporan, dan detail riwayat status |
+
+*(Untuk keperluan pengujian lokal mandiri, pengguna baru dapat langsung didaftarkan melalui halaman registrasi `/register`).*
+
+---
+
+## 6. Pengujian Otomatis (Automated Testing)
+
+Aplikasi dilengkapi dengan rangkaian pengujian komprehensif (*unit & feature tests*) yang dapat dijalankan secara instan:
+
+```bash
+php artisan test
+```
+
+### Cakupan Pengujian (59 Tests, 247 Assertions):
+- **Alur Pelaporan (`ReportTest`):** Pembuatan laporan warga, analisis multimodal AI, fallback kegagalan API, penolakan berkas non-gambar, pengecilan foto $\le$ 1280 px, fallback jika resize gagal, perlindungan throttle, dan proteksi hak akses `ReportPolicy`.
+- **Model Cadangan AI (`AiAnalyzerFallbackTest`):** Mocking via `Http::fake` untuk memastikan transisi saat model pertama merespons 404, 429, 500, 502, 503, hingga kepastian alur laporan tetap berhasil tersimpan.
+- **Panel Admin (`AdminReportTest`):** Hak akses otorisasi admin (warga 403), filter tabel multi-kriteria, penandaan peta Leaflet, serta verifikasi dan koreksi admin tanpa menimpa saran AI asli.
+- **Riwayat Status (`ReportTimelineTest`):** Tampilan linimasa urut waktu, penyamaran identitas admin ("Admin"), serta pemisahan catatan publik vs internal.
+- **Halaman Statistik (`AdminStatisticsTest`):** Penghitungan kartu KPI, rata-rata durasi penyelesaian di tingkat SQL, pengujian grafik kategori efektif, grafik mingguan 8 minggu terakhir, serta ketahanan halaman saat belum ada data.
+
+---
+
+## 7. Batasan yang Diketahui (Known Limitations)
+
+1. **Batas Kuota Gemini Tier Gratis:** Pada tier gratis Google AI Studio, model memiliki batas permintaan per menit (RPM) dan per hari (RPD). Aplikasi mengantisipasi hal ini dengan fitur multi-model fallback dan pembatasan laju pengiriman laporan (*rate limiting*).
+2. **Ketersediaan Penamaan Model:** Google dapat memperbarui atau mendepresiasi penamaan model sewaktu-waktu. Penamaan model dipusatkan pada `.env` (`GEMINI_MODELS`) sehingga dapat diperbarui tanpa mengubah kode program.
+3. **Hasil AI Bersifat Rekomendasi:** Analisis AI dirancang sebagai alat bantu penilai awal (*first-line filter*). Validasi akhir dan penugasan armada kebersihan tetap berada di bawah wewenang admin/petugas melalui antarmuka koreksi admin.
+4. **Ketergantungan Ekstensi GD:** Fitur kompresi gambar mengandalkan ekstensi GD bawaan PHP. Jika ekstensi tidak terpasang di server, sistem akan mengaktifkan mode *fallback* menyimpan berkas asli secara otomatis.
+
+---
+
+## 8. Pengungkapan Penggunaan AI (AI Disclosure)
+
+Pengembangan platform ini memanfaatkan bantuan kecerdasan buatan (*AI Agent*) dalam proses *pair programming*, perancangan pengujian otomatis, serta integrasi layanan Gemini multimodal. Dokumen transparansi pengungkapan penggunaan AI dapat dipelajari secara lengkap pada:
+👉 [**`docs/ai-disclosure.md`**](docs/ai-disclosure.md)
+
+---
+
+## 9. Dependensi & Aset Pihak Ketiga
+
+| Komponen / Pustaka | Penggunaan | Lisensi |
+|---|---|---|
+| **Laravel Framework** | Kerangka kerja aplikasi web backend | [MIT License](https://github.com/laravel/framework/blob/master/LICENSE.md) |
+| **Laravel Breeze** | Scaffolding autentikasi berbasis Blade | [MIT License](https://github.com/laravel/breeze/blob/1.x/LICENSE.md) |
+| **Tailwind CSS** | Kerangka kerja utilitas antarmuka visual | [MIT License](https://github.com/tailwindlabs/tailwindcss/blob/master/LICENSE) |
+| **Leaflet JS** | Pustaka peta interaktif | [BSD 2-Clause License](https://github.com/Leaflet/Leaflet/blob/main/LICENSE) |
+| **OpenStreetMap** | Penyedia peta ubin (*map tiles*) | [ODbL & CC BY-SA](https://www.openstreetmap.org/copyright) |
+| **Chart.js** (v4.4.7) | Pustaka visualisasi grafik statistik | [MIT License](https://github.com/chartjs/Chart.js/blob/master/LICENSE.md) |
+| **Google Gemini API** | Layanan analisis multimodal | [Google Generative AI Terms of Service](https://ai.google.dev/terms) |
