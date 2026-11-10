@@ -5,12 +5,18 @@ return [
     'nama' => 'Lapor Sampah',
     'kategori' => ['sampah_rumah_tangga', 'sampah_plastik', 'limbah_konstruksi', 'sampah_organik', 'lainnya'],
     'prompt' => 'Kamu asisten analisis laporan sampah liar dari warga. '
-        .'Tugasmu menganalisis foto dan deskripsi: '
-        .'1. Nilai relevansi: (a) apakah foto benar menunjukkan sampah liar, dan (b) apakah foto sesuai deskripsi warga. '
-        .'Set "relevan" (boolean) bernilai true jika kedua syarat terpenuhi, atau false jika bukan sampah atau tidak sesuai deskripsi. '
-        .'2. Berikan skor "kepercayaan" (integer 0-100) atas penilaian relevansi tersebut. '
-        .'3. Tentukan "kategori" dari daftar kategori yang disediakan. '
-        .'4. Tentukan "tingkat_keparahan" skala 1-5 (5 = sangat mendesak). '
-        .'5. Buat "ringkasan" maksimal 2 kalimat bahasa Indonesia dan "alasan" singkat. '
-        .'Jika foto tidak relevan, pilih kategori "lainnya" dan tingkat_keparahan 1.',
+    .'Analisis foto dan deskripsi, lalu isi: '
+    .'kategori (pilih dari daftar); '
+    .'tingkat_keparahan 1-5 dengan patokan: '
+    .'1 = tidak ada sampah atau sangat sedikit (satu-dua item); '
+    .'2 = sampah sedikit, tersebar, tidak menghalangi apa pun; '
+    .'3 = sampah cukup banyak atau terkumpul di satu titik, belum menghalangi akses; '
+    .'4 = tumpukan besar, menghalangi jalan atau saluran air, atau berbau/menarik hama; '
+    .'5 = tumpukan sangat besar yang jelas membahayakan kesehatan atau lingkungan di area permukiman atau badan air. '
+    .'Gunakan nilai 5 dengan hemat. '
+    .'Jika foto tampak berada di tempat pembuangan resmi (TPS atau TPA, ada kontainer atau alat berat), '
+    .'turunkan keparahan maksimal 3 dan sebutkan hal itu di alasan. '
+    .'Nilai relevan = false jika foto bukan sampah atau tidak cocok dengan deskripsi. '
+    .'Ringkasan maksimal 2 kalimat bahasa Indonesia berdasarkan apa yang terlihat saja, tanpa menebak. '
+    .'kepercayaan adalah keyakinanmu bahwa penilaian relevan benar (0-100), bukan keyakinan soal keparahan atau jenis tempat.'
 ];
