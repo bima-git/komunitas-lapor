@@ -10,7 +10,7 @@
         {{-- Peringatan jika foto dinilai tidak relevan / perlu verifikasi --}}
         @if ($report->relevan === false || $report->status === 'perlu_verifikasi')
             <div class="p-3 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg text-sm">
-                <strong>Peringatan:</strong> Foto laporan tampak tidak sesuai atau tidak menunjukkan sampah liar. Laporan ini memerlukan verifikasi manual oleh admin.
+                <strong>Peringatan:</strong> Foto dan deskripsi tampak tidak sesuai. Laporan ini akan diverifikasi admin.
             </div>
         @endif
 

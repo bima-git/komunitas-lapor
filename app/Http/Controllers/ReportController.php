@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Report;
 use App\Services\AiAnalyzer;
+use App\Services\ImageResizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
@@ -21,21 +22,24 @@ class ReportController extends Controller
         return view('reports.create');
     }
 
-    public function store(Request $request, AiAnalyzer $ai)
+    public function store(Request $request, AiAnalyzer $ai, ImageResizer $resizer)
     {
         $data = $request->validate([
             'judul' => ['required', 'string', 'max:120'],
             'deskripsi' => ['nullable', 'string', 'max:1000'],
-            'foto' => ['required', 'image', 'max:4096'], // maks 4 MB
+            'foto' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'], // maks 4 MB gambar valid
             'lat' => ['required', 'numeric', 'between:-90,90'],
             'lng' => ['required', 'numeric', 'between:-180,180'],
         ]);
+
+        // Kecilkan foto sebelum disimpan dan sebelum dikirim ke AI (sisi terpanjang maks 1280px, JPEG q=80)
+        $fotoPath = $resizer->resizeAndStore($request->file('foto'), 'reports', 'public');
 
         $report = Report::create([
             'user_id' => $request->user()->id,
             'judul' => $data['judul'],
             'deskripsi' => $data['deskripsi'] ?? null,
-            'foto_path' => $request->file('foto')->store('reports', 'public'),
+            'foto_path' => $fotoPath,
             'lat' => $data['lat'],
             'lng' => $data['lng'],
         ]);
@@ -63,7 +67,7 @@ class ReportController extends Controller
 
             $pesan = $isRelevan
                 ? 'Laporan terkirim dan dianalisis AI.'
-                : 'Laporan terkirim, tetapi foto tampak tidak sesuai dan akan diverifikasi admin.';
+                : 'Foto dan deskripsi tampak tidak sesuai. Laporan ini akan diverifikasi admin.';
         } else {
             // Laporan tetap tersimpan jika AI gagal, admin akan mengisi manual
             $report->update([

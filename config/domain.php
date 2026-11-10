@@ -4,6 +4,10 @@
 return [
     'nama' => 'Lapor Sampah',
     'kategori' => ['sampah_rumah_tangga', 'sampah_plastik', 'limbah_konstruksi', 'sampah_organik', 'lainnya'],
+    'rate_limit' => [
+        'per_menit' => 2,
+        'per_jam' => 10,
+    ],
     'prompt' => 'Kamu asisten analisis laporan sampah liar dari warga. '
     .'Analisis foto dan deskripsi, lalu isi: '
     .'kategori (pilih dari daftar); '
