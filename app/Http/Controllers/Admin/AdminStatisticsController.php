@@ -38,6 +38,9 @@ class AdminStatisticsController extends Controller
             ? round(($statusCounts['selesai'] / $totalReports) * 100, 1)
             : 0;
 
+        // Total laporan yang ditandai kemungkinan duplikat
+        $totalDuplikat = Report::whereNotNull('duplikat_dari')->count();
+
         // 2. Rata-rata Waktu Penyelesaian:
         // Selisih antara created_at laporan dan entri status_logs pertama bernilai "selesai".
         $firstSelesaiSub = DB::table('status_logs')
@@ -120,6 +123,7 @@ class AdminStatisticsController extends Controller
             'totalReports',
             'statusCounts',
             'persentaseSelesai',
+            'totalDuplikat',
             'avgCompletionFormatted',
             'categoryLabels',
             'categoryData',

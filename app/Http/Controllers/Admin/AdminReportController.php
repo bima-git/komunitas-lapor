@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Report;
 use App\Services\AiAnalyzer;
+use App\Services\DuplicateDetector;
 use Illuminate\Http\Request;
 
 class AdminReportController extends Controller
@@ -14,7 +15,7 @@ class AdminReportController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Report::with(['user', 'editor']);
+        $query = Report::with(['user', 'editor', 'duplikatAsli']);
 
         // Filter status
         if ($request->filled('status')) {
@@ -55,13 +56,23 @@ class AdminReportController extends Controller
             $query->where('ai_status', $request->ai_status);
         }
 
+        // Filter duplikat (1 = hanya duplikat, 0 = bukan duplikat)
+        if ($request->filled('duplikat')) {
+            if ($request->duplikat === '1') {
+                $query->whereNotNull('duplikat_dari');
+            } elseif ($request->duplikat === '0') {
+                $query->whereNull('duplikat_dari');
+            }
+        }
+
         // Kloning query untuk data titik peta sebelum dipaginasi
         $mapReports = (clone $query)
+            ->setEagerLoads([])
             ->select([
                 'id', 'judul', 'lat', 'lng',
                 'tingkat_keparahan', 'keparahan_admin',
                 'kategori', 'kategori_admin',
-                'status', 'relevan', 'ai_status'
+                'status', 'relevan', 'ai_status', 'duplikat_dari'
             ])
             ->get();
 
@@ -77,14 +88,17 @@ class AdminReportController extends Controller
     }
 
     /**
-     * Tampilkan detail laporan untuk admin beserta form verifikasi & koreksi admin.
+     * Tampilkan detail laporan untuk admin beserta form verifikasi & koreksi admin dan daftar laporan terdekat.
      */
-    public function show(Report $report)
+    public function show(Report $report, DuplicateDetector $detector)
     {
-        $report->load(['user', 'editor', 'logs.pengubah']);
+        $report->load(['user', 'editor', 'logs.pengubah', 'duplikatAsli', 'laporanDuplikat']);
         $kategoriList = config('domain.kategori', []);
 
-        return view('admin.show', compact('report', 'kategoriList'));
+        // Cari laporan terdekat untuk ditampilkan di panel admin
+        $nearbyReports = $detector->findNearbyReports($report, config('laporan.duplikat.batas_hasil', 5), false);
+
+        return view('admin.show', compact('report', 'kategoriList', 'nearbyReports'));
     }
 
     /**
@@ -167,5 +181,38 @@ class AdminReportController extends Controller
 
         return redirect()->route('admin.reports.show', $report)
             ->with('warning', 'Analisis ulang AI belum berhasil (seluruh model AI sedang sibuk atau kuota harian habis). Silakan coba lagi nanti.');
+    }
+
+    /**
+     * Hapus penanda duplikat dari laporan (laporan dinilai bukan duplikat oleh admin).
+     */
+    public function bukanDuplikat(Report $report)
+    {
+        $report->update(['duplikat_dari' => null]);
+
+        return redirect()->route('admin.reports.show', $report)
+            ->with('status', 'Tanda duplikat berhasil dihapus dari laporan ini.');
+    }
+
+    /**
+     * Tandai laporan selesai sebagai duplikat dan catat otomatis di status_logs (tidak tampil ke pelapor).
+     */
+    public function selesaiDuplikat(Request $request, Report $report)
+    {
+        $asliId = $report->duplikat_dari;
+
+        $report->update([
+            'status' => 'selesai',
+        ]);
+
+        $report->logs()->create([
+            'status' => 'selesai',
+            'catatan' => 'Laporan diselesaikan sebagai duplikat' . ($asliId ? " dari laporan #{$asliId}." : '.'),
+            'tampil_ke_pelapor' => false,
+            'diubah_oleh' => $request->user()->id,
+        ]);
+
+        return redirect()->route('admin.reports.show', $report)
+            ->with('status', 'Laporan berhasil diselesaikan sebagai duplikat.');
     }
 }

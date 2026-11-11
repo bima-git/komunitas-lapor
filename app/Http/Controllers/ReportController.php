@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Report;
 use App\Services\AiAnalyzer;
+use App\Services\DuplicateDetector;
 use App\Services\ImageResizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -22,7 +23,7 @@ class ReportController extends Controller
         return view('reports.create');
     }
 
-    public function store(Request $request, AiAnalyzer $ai, ImageResizer $resizer)
+    public function store(Request $request, AiAnalyzer $ai, ImageResizer $resizer, DuplicateDetector $detector)
     {
         $data = $request->validate([
             'judul' => ['required', 'string', 'max:120'],
@@ -75,6 +76,13 @@ class ReportController extends Controller
             ]);
 
             $pesan = 'Laporan terkirim. Analisis AI belum tersedia, admin akan melengkapi.';
+        }
+
+        // Deteksi laporan duplikat berdasarkan lokasi dan waktu tanpa memanggil AI tambahan
+        $duplikatAsli = $detector->detectDuplicateFor($report);
+        if ($duplikatAsli) {
+            $report->update(['duplikat_dari' => $duplikatAsli->id]);
+            $pesan = 'Ada laporan serupa di sekitar lokasi ini, laporan Anda tetap kami terima.';
         }
 
         return redirect()->route('reports.show', $report)->with('status', $pesan);

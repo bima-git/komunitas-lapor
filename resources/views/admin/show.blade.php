@@ -58,6 +58,41 @@
             </div>
         @endif
 
+        {{-- Banner jika Kemungkinan Duplikat --}}
+        @if ($report->duplikat_dari)
+            <div class="p-4 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-sm shadow-sm space-y-3">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex items-start gap-3">
+                        <span class="text-xl">🔁</span>
+                        <div>
+                            <h4 class="font-semibold text-rose-900">Kemungkinan Duplikat Terdeteksi</h4>
+                            <p class="text-xs text-rose-700 mt-0.5">
+                                Sistem mendeteksi laporan ini berada dalam radius &le; {{ config('laporan.duplikat.jarak_meter', 50) }} meter dari laporan lain yang belum selesai.
+                                Laporan asli acuan:
+                                <a href="{{ route('admin.reports.show', $report->duplikat_dari) }}" class="font-bold underline text-rose-900 hover:text-rose-950">
+                                    Laporan #{{ $report->duplikat_dari }} ({{ $report->duplikatAsli->judul ?? 'Lihat Laporan' }}) &rarr;
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 pt-2 border-t border-rose-200">
+                    <form method="POST" action="{{ route('admin.reports.bukanDuplikat', $report) }}" onsubmit="return confirm('Hapus tanda duplikat dari laporan ini?');">
+                        @csrf
+                        <button type="submit" class="bg-white hover:bg-gray-100 text-gray-800 text-xs font-semibold py-1.5 px-3 rounded-lg border border-gray-300 shadow-sm transition">
+                            Bukan duplikat
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ route('admin.reports.selesaiDuplikat', $report) }}" onsubmit="return confirm('Tandai laporan ini selesai sebagai duplikat? Status akan diubah menjadi selesai tanpa catatan ke pelapor.');">
+                        @csrf
+                        <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg shadow-sm transition">
+                            Tandai selesai sebagai duplikat
+                        </button>
+                    </form>
+                </div>
+            </div>
+        @endif
+
         {{-- Banner Peringatan jika Perlu Verifikasi / Tidak Relevan --}}
         @if ($report->relevan === false || $report->status === 'perlu_verifikasi')
             <div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm shadow-sm flex items-start gap-3">
@@ -215,6 +250,59 @@
                             </form>
                         </div>
                     </div>
+                </div>
+
+                {{-- Daftar Laporan Terdekat di Sekitar Lokasi --}}
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between border-b pb-2">
+                        <div>
+                            <h3 class="font-semibold text-base text-gray-900">
+                                Daftar Laporan Terdekat (&le; {{ config('laporan.duplikat.jarak_meter', 50) }} meter)
+                            </h3>
+                            <p class="text-xs text-gray-500">
+                                Laporan aktif di sekitar lokasi ini dalam 30 hari terakhir.
+                            </p>
+                        </div>
+                        <span class="text-xs bg-gray-100 text-gray-700 font-semibold px-2 py-0.5 rounded-full">
+                            {{ count($nearbyReports ?? []) }} laporan
+                        </span>
+                    </div>
+
+                    @if (!empty($nearbyReports) && count($nearbyReports) > 0)
+                        <div class="divide-y divide-gray-100 text-xs">
+                            @foreach ($nearbyReports as $nr)
+                                <div class="py-2.5 flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3">
+                                        <img src="{{ asset('storage/'.$nr->foto_path) }}" class="w-10 h-10 object-cover rounded-md border" alt="Foto">
+                                        <div>
+                                            <a href="{{ route('admin.reports.show', $nr) }}" class="font-semibold text-gray-900 hover:text-blue-600 hover:underline">
+                                                #{{ $nr->id }} - {{ $nr->judul }}
+                                            </a>
+                                            <div class="text-[11px] text-gray-500 flex items-center gap-2 mt-0.5">
+                                                <span>{{ ucwords(str_replace('_', ' ', $nr->effective_kategori ?: '-')) }}</span>
+                                                <span>&bull;</span>
+                                                <span>Keparahan: {{ $nr->effective_keparahan ?? '-' }}/5</span>
+                                                <span>&bull;</span>
+                                                <span>{{ $nr->created_at->format('d M Y, H:i') }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-right whitespace-nowrap">
+                                        <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                            {{ $nr->jarak_meter }} m
+                                        </span>
+                                        <span class="block text-[10px] text-gray-400 mt-0.5 capitalize">
+                                            {{ str_replace('_', ' ', $nr->status) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-xs text-gray-400 italic py-2">
+                            Tidak ada laporan aktif lain yang ditemukan dalam radius {{ config('laporan.duplikat.jarak_meter', 50) }} meter.
+                        </p>
+                    @endif
                 </div>
 
             </div>

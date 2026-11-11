@@ -13,17 +13,19 @@ Aplikasi ini mengatasi kendala klasik pelaporan manual: laporan sampah yang menu
 - **Pengecilan Foto Otomatis:** Foto lapangan otomatis diperkecil ukurannya (sisi terpanjang maksimal 1280 px, format JPEG kualitas 80) di sisi server sebelum disimpan dan dianalisis, sehingga hemat kuota dan menjaga orientasi foto ponsel (EXIF).
 - **Analisis AI Instan:** Memperoleh saran kategori, skala keparahan (1–5), ringkasan kondisi, dan evaluasi kesesuaian foto vs deskripsi secara transparan.
 - **Perlindungan Anti-Spam (Rate Limiting):** Pembatasan laju pengiriman laporan yang ramah (maksimal 2 laporan per menit dan 10 per jam). Jika batas terlampaui, isian form tidak hilang dan pengguna menerima pesan informatif.
+- **Deteksi Duplikat Ramah Warga:** Jika terdeteksi ada laporan serupa di sekitar lokasi, pengiriman laporan warga tetap diterima dengan notifikasi ramah tanpa membocorkan identitas atau foto warga lain.
 - **Timeline Riwayat Status:** Memantau progres penanganan laporan dari awal (*Laporan dikirim*) hingga selesai secara kronologis. Nama pribadi petugas disamarkan demi privasi (ditampilkan sebagai *"Admin"*).
 - **Akses Mandiri Terproteksi:** Setiap warga hanya dapat mengakses dan melihat rincian laporannya sendiri (`ReportPolicy`).
 
 ### Untuk Admin & Petugas Kebersihan
-- **Dashboard Pemantauan & Verifikasi (`/admin`):** Tabel pemantauan seluruh laporan masuk dengan filter dinamis (status, kategori, tingkat keparahan, relevansi AI, dan status AI). Pengurutan default memprioritaskan tingkat keparahan tertinggi.
+- **Dashboard Pemantauan & Verifikasi (`/admin`):** Tabel pemantauan seluruh laporan masuk dengan filter dinamis (status, kategori, tingkat keparahan, relevansi AI, status AI, dan status duplikat). Pengurutan default memprioritaskan tingkat keparahan tertinggi.
 - **Peta Sebaran Titik Sampah:** Visualisasi spasial seluruh titik laporan dengan penanda (*marker*) berwarna yang merefleksikan tingkat keparahan lapangan.
+- **Deteksi & Manajemen Laporan Duplikat:** Penandaan otomatis laporan serupa di lokasi berdekatan ($\le 50$ m) dalam rentang 30 hari. Dilengkapi filter duplikat di dashboard, penanda badge, tabel laporan terdekat di detail admin, serta aksi cepat *"Bukan duplikat"* (menghapus tanda) atau *"Tandai selesai sebagai duplikat"* (menyelesaikan laporan dan mencatat log).
 - **Verifikasi & Koreksi Admin:** Formulir penyesuaian status, validasi relevansi, serta koreksi kategori dan keparahan tanpa menimpa data rekomendasi AI asli (`kategori_admin`, `keparahan_admin`, `dikoreksi_oleh`).
 - **Penanda `ai_status = gagal` & Tombol Analisis Ulang AI:** Deteksi visual laporan yang gagal dianalisis AI (akibat kuota harian habis atau gangguan jaringan) dengan badge khusus dan filter `ai_status`, disertai tombol aksi *Analisis Ulang AI* pada halaman detail untuk memproses ulang kapan saja.
 - **Pengaturan Privasi Catatan:** Admin dapat menentukan apakah catatan tindak lanjut dapat dibaca oleh pelapor (`tampil_ke_pelapor`) atau hanya sebagai catatan audit internal.
 - **Dashboard Kinerja & Statistik (`/admin/statistik`):**
-  - Kartu ringkasan metrik KPI (Total, Baru, Diproses, Perlu Verifikasi, Selesai, dan Persentase).
+  - Kartu ringkasan metrik KPI (Total, Baru, Diproses, Perlu Verifikasi, Selesai, Duplikat, dan Persentase).
   - Rata-rata waktu penyelesaian laporan dihitung langsung pada level basis data.
   - Grafik batang distribusi laporan per kategori efektif.
   - Grafik garis tren pengaduan masuk selama 8 minggu terakhir (versi Chart.js 4.4.7 terkunci).
@@ -72,6 +74,16 @@ Aplikasi mendukung daftar model berurutan melalui konfigurasi `GEMINI_MODELS` (c
 1. Sistem mencoba model utama terlebih dahulu dengan batas waktu (timeout) 15 detik.
 2. Jika model utama mengalami kendala HTTP `404`, `429` (kuota habis), `500`, `502`, `503` (layanan sibuk), atau kendala koneksi/timeout, sistem **langsung beralih ke model cadangan berikutnya tanpa jeda panjang**.
 3. Jika seluruh model gagal, sistem menjalankan *graceful fallback*: laporan tetap tersimpan di basis data dengan status `ai_status = 'gagal'`, dan admin dapat melengkapi klasifikasi secara manual.
+
+### Deteksi Laporan Duplikat Spasial (Non-AI)
+Untuk mencegah penumpukan penanganan pada titik sampah yang sama, aplikasi mengimplementasikan deteksi laporan duplikat otomatis tanpa memanggil API AI:
+- **Kriteria Duplikasi:** Laporan ditandai sebagai kemungkinan duplikat jika memenuhi 4 kondisi:
+  1. Berada dalam radius $\le 50$ meter (dihitung menggunakan rumus Haversine dengan prakualifikasi spasial *bounding box* latitude/longitude yang efisien di query SQL).
+  2. Laporan pembanding belum berstatus `selesai`.
+  3. Laporan dibuat dalam rentang 30 hari terakhir.
+  4. Memiliki kategori efektif yang sama (`COALESCE(kategori_admin, kategori)`).
+- **Konfigurasi Dinamis (`config/laporan.php`):** Parameter radius (`jarak_meter`), rentang waktu (`rentang_hari`), dan batas temuan terdekat (`batas_hasil`) dapat dikonfigurasi tanpa menyentuh kode program.
+- **Integritas Data:** Sistem tidak pernah menghapus atau menggabungkan laporan secara sepihak. Relasi disimpan di kolom `duplikat_dari` (`nullOnDelete`), dan admin diberikan kontrol penuh melalui tombol *"Bukan duplikat"* atau *"Tandai selesai sebagai duplikat"*.
 
 ---
 
@@ -182,13 +194,14 @@ Aplikasi dilengkapi dengan rangkaian pengujian komprehensif (*unit & feature tes
 php artisan test
 ```
 
-### Cakupan Pengujian (69 Tests, 295 Assertions):
+### Cakupan Pengujian (77 Tests, 328 Assertions):
 - **Alur Pelaporan (`ReportTest`):** Pembuatan laporan warga, analisis multimodal AI, fallback kegagalan API, penolakan berkas non-gambar, pengecilan foto $\le$ 1280 px, fallback jika resize gagal, perlindungan throttle, dan proteksi hak akses `ReportPolicy`.
 - **Evaluasi AI & Relevansi (`AiAnalyzerTest`):** Pengujian kesesuaian foto vs deskripsi via `Http::fake` (foto sampah + deskripsi tidak sesuai, foto bukan sampah, keduanya sesuai, dan deskripsi netral).
 - **Model Cadangan AI (`AiAnalyzerFallbackTest`):** Mocking via `Http::fake` untuk memastikan transisi saat model pertama merespons 404, 429, 500, 502, 503, hingga kepastian alur laporan tetap berhasil tersimpan.
+- **Deteksi Laporan Duplikat (`DuplicateReportTest`):** Pengujian laporan radius $\le 50$ m dengan kategori sama terdeteksi, laporan di luar 50 m tidak ditandai, laporan yang sudah selesai diabaikan, laporan kategori berbeda tidak ditandai, kerahasiaan data pelapor lain terjaga dari sisi warga, aksi admin *"Bukan duplikat"* dan *"Tandai selesai sebagai duplikat"*, penolakan akses warga biasa terhadap aksi admin (403), serta penyaringan filter duplikat di dashboard admin.
 - **Panel Admin (`AdminReportTest`):** Hak akses otorisasi admin (warga 403), filter tabel multi-kriteria (termasuk `ai_status`), penandaan peta Leaflet, verifikasi dan koreksi admin tanpa menimpa saran AI asli, penanda visual `ai_status = gagal`, serta aksi analisis ulang AI (`reports.reanalyze`).
 - **Riwayat Status (`ReportTimelineTest`):** Tampilan linimasa urut waktu, penyamaran identitas admin ("Admin"), serta pemisahan catatan publik vs internal.
-- **Halaman Statistik (`AdminStatisticsTest`):** Penghitungan kartu KPI, rata-rata durasi penyelesaian di tingkat SQL, pengujian grafik kategori efektif, grafik mingguan 8 minggu terakhir, serta ketahanan halaman saat belum ada data.
+- **Halaman Statistik (`AdminStatisticsTest`):** Penghitungan kartu KPI (termasuk kartu duplikat), rata-rata durasi penyelesaian di tingkat SQL, pengujian grafik kategori efektif, grafik mingguan 8 minggu terakhir, serta ketahanan halaman saat belum ada data.
 
 ---
 
@@ -198,6 +211,7 @@ php artisan test
 2. **Ketersediaan Penamaan Model:** Google dapat memperbarui atau mendepresiasi penamaan model sewaktu-waktu. Penamaan model dipusatkan pada `.env` (`GEMINI_MODELS`) sehingga dapat diperbarui tanpa mengubah kode program.
 3. **Hasil AI Bersifat Rekomendasi:** Analisis AI dirancang sebagai alat bantu penilai awal (*first-line filter*). Validasi akhir dan penugasan armada kebersihan tetap berada di bawah wewenang admin/petugas melalui antarmuka koreksi admin.
 4. **Ketergantungan Ekstensi GD:** Fitur kompresi gambar mengandalkan ekstensi GD bawaan PHP. Jika ekstensi tidak terpasang di server, sistem akan mengaktifkan mode *fallback* menyimpan berkas asli secara otomatis.
+5. **Akurasi Deteksi Duplikat Bergantung pada Presisi Pin Peta:** Perhitungan jarak menggunakan formula Haversine berbasis koordinat latitude/longitude. Jika warga salah menempatkan titik pin pada peta Leaflet atau GPS perangkat memiliki deviasi akurasi yang tinggi, laporan berpotensi tidak terdeteksi sebagai duplikat atau sebaliknya.
 
 ---
 

@@ -34,6 +34,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/laporan/{report}', [AdminReportController::class, 'show'])->name('reports.show');
     Route::patch('/laporan/{report}/status', [AdminReportController::class, 'updateStatus'])->name('reports.updateStatus');
     Route::post('/laporan/{report}/analisis-ulang', [AdminReportController::class, 'reanalyze'])->name('reports.reanalyze');
+    Route::post('/laporan/{report}/bukan-duplikat', [AdminReportController::class, 'bukanDuplikat'])->name('reports.bukanDuplikat');
+    Route::post('/laporan/{report}/selesai-duplikat', [AdminReportController::class, 'selesaiDuplikat'])->name('reports.selesaiDuplikat');
 });
 
 require __DIR__.'/auth.php';

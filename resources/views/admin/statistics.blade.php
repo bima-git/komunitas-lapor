@@ -36,7 +36,7 @@
         @endif
 
         {{-- 1. Kartu Ringkasan (KPI Cards) --}}
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
 
             {{-- Total Laporan --}}
             <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
@@ -76,6 +76,13 @@
                 </div>
                 <span class="text-2xl font-bold text-green-900 mt-1 block">{{ number_format($statusCounts['selesai'], 0, ',', '.') }}</span>
                 <span class="text-[11px] text-green-600 mt-0.5 block">Tingkat selesai: {{ $persentaseSelesai }}%</span>
+            </div>
+
+            {{-- Laporan Duplikat --}}
+            <div class="bg-white p-4 rounded-xl border border-rose-200 shadow-sm">
+                <span class="block text-xs font-medium text-rose-700">Duplikat</span>
+                <span class="text-2xl font-bold text-rose-900 mt-1 block">{{ number_format($totalDuplikat, 0, ',', '.') }}</span>
+                <span class="text-[11px] text-rose-600 mt-0.5 block">Kemungkinan duplikat</span>
             </div>
 
             {{-- 2. Rata-rata Waktu Penyelesaian --}}

@@ -19,6 +19,8 @@ class Report extends Model
         'relevan', 'kepercayaan', 'status',
         // Kolom koreksi admin
         'kategori_admin', 'keparahan_admin', 'dikoreksi_oleh',
+        // Kolom deteksi duplikat
+        'duplikat_dari',
     ];
 
     /**
@@ -33,6 +35,7 @@ class Report extends Model
             'kepercayaan' => 'integer',
             'tingkat_keparahan' => 'integer',
             'keparahan_admin' => 'integer',
+            'duplikat_dari' => 'integer',
         ];
     }
 
@@ -68,5 +71,21 @@ class Report extends Model
     public function logs(): HasMany
     {
         return $this->hasMany(StatusLog::class)->latest();
+    }
+
+    /**
+     * Laporan asli jika laporan ini ditandai sebagai duplikat.
+     */
+    public function duplikatAsli(): BelongsTo
+    {
+        return $this->belongsTo(Report::class, 'duplikat_dari');
+    }
+
+    /**
+     * Daftar laporan lain yang ditandai sebagai duplikat dari laporan ini.
+     */
+    public function laporanDuplikat(): HasMany
+    {
+        return $this->hasMany(Report::class, 'duplikat_dari');
     }
 }

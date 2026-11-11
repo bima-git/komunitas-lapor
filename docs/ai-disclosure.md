@@ -32,6 +32,13 @@ Pengembangan fitur-fitur berikut diimplementasikan dan diverifikasi dengan bantu
 - **Pembatasan Laju Pelaporan (Rate Limiting):** Melindungi endpoint pengiriman laporan (`POST /laporan`) dengan batas maksimal 10 laporan per jam dan 2 per menit untuk warga (admin dibebaskan dari pembatasan). Menampilkan pesan peringatan ramah berbahasa Indonesia dan mengembalikan form dengan input terisi saat batas terlampaui.
 - **Penyempurnaan Teks Relevansi AI:** Memperbaiki teks notifikasi dan peringatan untuk kasus foto dan deskripsi yang tidak cocok menjadi *"Foto dan deskripsi tampak tidak sesuai. Laporan ini akan diverifikasi admin."*
 
+### e. Deteksi Laporan Duplikat Berbasis Lokasi & Waktu (Fitur Spasial Non-AI)
+- **Komputasi Matematis & Spasial Murni:** Deteksi duplikasi dilakukan sepenuhnya menggunakan algoritma spasial (penyaringan awal *bounding box* koordinat pada query basis data yang dilanjutkan dengan perhitungan jarak rumus Haversine di service `DuplicateDetector`). Fitur ini **tidak memanggil API model AI tambahan**, sehingga menghemat kuota dan latensi pengiriman.
+- **Kriteria & Konfigurasi Fleksibel:** Laporan diklasifikasikan sebagai kandidat duplikat jika berada dalam radius $\le 50$ meter, berstatus belum selesai, dibuat dalam rentang 30 hari terakhir, dan memiliki kesamaan kategori efektif (`COALESCE(kategori_admin, kategori)`). Parameter ini dapat diatur melalui `config/laporan.php`.
+- **Integritas & Hak Kontrol Admin:** Laporan yang terdeteksi tidak pernah dihapus atau digabungkan secara otomatis, melainkan hanya ditandai dengan foreign key `duplikat_dari`. Admin memiliki hak kendali penuh untuk melepaskan tanda (*"Bukan duplikat"*) atau menyelesaikan laporan (*"Tandai selesai sebagai duplikat"* beserta pencatatan riwayat di `status_logs`).
+- **Perlindungan Privasi Pelapor:** Warga pelapor tidak pernah diblokir saat mengirimkan laporan duplikat dan hanya menerima pemberitahuan netral: *"Ada laporan serupa di sekitar lokasi ini, laporan Anda tetap kami terima."* Identitas, foto, maupun detail laporan warga lain dijaga kerahasiaannya dan tidak ditampilkan ke pelapor (`ReportPolicy`).
+- **Metrik Statistik Admin:** Menambahkan kartu indikator KPI laporan duplikat pada `/admin/statistik` untuk memantau konsentrasi laporan serupa di lapangan.
+
 ---
 
 ## 2. Penggunaan AI Service dalam Aplikasi (Gemini API)

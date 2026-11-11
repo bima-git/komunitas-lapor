@@ -38,7 +38,7 @@
 
         {{-- Filter Box --}}
         <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-            <form method="GET" action="{{ route('admin.dashboard') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <form method="GET" action="{{ route('admin.dashboard') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
                 {{-- Filter Status --}}
                 <div>
                     <label for="status" class="block text-xs font-medium text-gray-700 mb-1">Status</label>
@@ -98,6 +98,16 @@
                     </select>
                 </div>
 
+                {{-- Filter Duplikat --}}
+                <div>
+                    <label for="duplikat" class="block text-xs font-medium text-gray-700 mb-1">Duplikat</label>
+                    <select id="duplikat" name="duplikat" class="w-full text-xs border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Semua</option>
+                        <option value="1" {{ request('duplikat') === '1' ? 'selected' : '' }}>Kemungkinan Duplikat</option>
+                        <option value="0" {{ request('duplikat') === '0' ? 'selected' : '' }}>Bukan Duplikat</option>
+                    </select>
+                </div>
+
                 {{-- Tombol Aksi --}}
                 <div class="flex items-end gap-2">
                     <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-3 rounded-lg shadow-sm transition">
@@ -136,7 +146,17 @@
                                     <a href="{{ route('admin.reports.show', $r) }}" class="font-semibold text-gray-900 hover:text-blue-600 hover:underline block text-sm">
                                         {{ $r->judul }}
                                     </a>
-                                    <span class="text-[11px] text-gray-400">Oleh: {{ $r->user->name ?? 'Anonim' }}</span>
+                                    <span class="text-[11px] text-gray-400 block">Oleh: {{ $r->user->name ?? 'Anonim' }}</span>
+                                    @if ($r->duplikat_dari)
+                                        <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                            <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 border border-rose-200">
+                                                Kemungkinan duplikat
+                                            </span>
+                                            <a href="{{ route('admin.reports.show', $r->duplikat_dari) }}" class="text-[10px] text-rose-600 hover:text-rose-800 underline font-medium" title="Buka laporan acuan asli #{{ $r->duplikat_dari }}">
+                                                Asli: #{{ $r->duplikat_dari }}
+                                            </a>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="p-3.5 whitespace-nowrap">
                                     <span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[11px] font-medium block w-fit">
@@ -270,6 +290,7 @@
                         <div style="font-size: 11px; color: #4b5563; margin-bottom: 6px;">
                             Status: <strong style="text-transform: capitalize;">${r.status.replace('_', ' ')}</strong>
                         </div>
+                        ${r.duplikat_dari ? `<div style="font-size: 10px; color: #e11d48; margin-bottom: 6px; font-weight: 600;">⚠️ Kemungkinan duplikat (#${r.duplikat_dari})</div>` : ''}
                         <a href="/admin/laporan/${r.id}" style="color: #2563eb; font-weight: 600; font-size: 11px; text-decoration: underline;">
                             Lihat Detail &rarr;
                         </a>

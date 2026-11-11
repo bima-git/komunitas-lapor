@@ -28,6 +28,7 @@ class AdminStatisticsTest extends TestCase
         $response->assertSee('Diproses');
         $response->assertSee('Perlu Verifikasi');
         $response->assertSee('Selesai');
+        $response->assertSee('Duplikat');
         $response->assertSee('Rata-rata Penyelesaian');
         $response->assertSee('Jumlah Laporan per Kategori');
         $response->assertSee('Tren Laporan Masuk');
