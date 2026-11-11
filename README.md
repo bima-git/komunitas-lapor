@@ -26,7 +26,7 @@ Aplikasi ini mengatasi kendala klasik pelaporan manual: laporan sampah yang menu
 - **Pengaturan Privasi Catatan:** Admin dapat menentukan apakah catatan tindak lanjut dapat dibaca oleh pelapor (`tampil_ke_pelapor`) atau hanya sebagai catatan audit internal.
 - **Dashboard Kinerja & Statistik (`/admin/statistik`):**
   - Kartu ringkasan metrik KPI (Total, Baru, Diproses, Perlu Verifikasi, Selesai, Duplikat, dan Persentase).
-  - Rata-rata waktu penyelesaian laporan dihitung langsung pada level basis data.
+  - Rata-rata waktu penyelesaian dan persentase selesai dihitung murni dari laporan non-duplikat (`duplikat_dari` bernilai `null`), mencegah penutupan cepat laporan duplikat memanipulasi angka performa penanganan secara semu.
   - Grafik batang distribusi laporan per kategori efektif.
   - Grafik garis tren pengaduan masuk selama 8 minggu terakhir (versi Chart.js 4.4.7 terkunci).
 
@@ -194,14 +194,14 @@ Aplikasi dilengkapi dengan rangkaian pengujian komprehensif (*unit & feature tes
 php artisan test
 ```
 
-### Cakupan Pengujian (77 Tests, 328 Assertions):
+### Cakupan Pengujian (78 Tests, 332 Assertions):
 - **Alur Pelaporan (`ReportTest`):** Pembuatan laporan warga, analisis multimodal AI, fallback kegagalan API, penolakan berkas non-gambar, pengecilan foto $\le$ 1280 px, fallback jika resize gagal, perlindungan throttle, dan proteksi hak akses `ReportPolicy`.
 - **Evaluasi AI & Relevansi (`AiAnalyzerTest`):** Pengujian kesesuaian foto vs deskripsi via `Http::fake` (foto sampah + deskripsi tidak sesuai, foto bukan sampah, keduanya sesuai, dan deskripsi netral).
 - **Model Cadangan AI (`AiAnalyzerFallbackTest`):** Mocking via `Http::fake` untuk memastikan transisi saat model pertama merespons 404, 429, 500, 502, 503, hingga kepastian alur laporan tetap berhasil tersimpan.
 - **Deteksi Laporan Duplikat (`DuplicateReportTest`):** Pengujian laporan radius $\le 50$ m dengan kategori sama terdeteksi, laporan di luar 50 m tidak ditandai, laporan yang sudah selesai diabaikan, laporan kategori berbeda tidak ditandai, kerahasiaan data pelapor lain terjaga dari sisi warga, aksi admin *"Bukan duplikat"* dan *"Tandai selesai sebagai duplikat"*, penolakan akses warga biasa terhadap aksi admin (403), serta penyaringan filter duplikat di dashboard admin.
 - **Panel Admin (`AdminReportTest`):** Hak akses otorisasi admin (warga 403), filter tabel multi-kriteria (termasuk `ai_status`), penandaan peta Leaflet, verifikasi dan koreksi admin tanpa menimpa saran AI asli, penanda visual `ai_status = gagal`, serta aksi analisis ulang AI (`reports.reanalyze`).
 - **Riwayat Status (`ReportTimelineTest`):** Tampilan linimasa urut waktu, penyamaran identitas admin ("Admin"), serta pemisahan catatan publik vs internal.
-- **Halaman Statistik (`AdminStatisticsTest`):** Penghitungan kartu KPI (termasuk kartu duplikat), rata-rata durasi penyelesaian di tingkat SQL, pengujian grafik kategori efektif, grafik mingguan 8 minggu terakhir, serta ketahanan halaman saat belum ada data.
+- **Halaman Statistik (`AdminStatisticsTest`):** Penghitungan kartu KPI (termasuk kartu duplikat), rata-rata durasi penyelesaian di tingkat SQL, pengujian pemisahan laporan duplikat agar tidak memengaruhi durasi penyelesaian dan persentase selesai, pengujian grafik kategori efektif, grafik mingguan 8 minggu terakhir, serta ketahanan halaman saat belum ada data.
 
 ---
 

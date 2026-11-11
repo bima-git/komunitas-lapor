@@ -33,16 +33,21 @@ class AdminStatisticsController extends Controller
             'ditolak' => $statusCountsRaw['ditolak'] ?? 0,
         ];
 
-        // Persentase laporan selesai
-        $persentaseSelesai = $totalReports > 0
-            ? round(($statusCounts['selesai'] / $totalReports) * 100, 1)
-            : 0;
-
         // Total laporan yang ditandai kemungkinan duplikat
         $totalDuplikat = Report::whereNotNull('duplikat_dari')->count();
 
+        // Persentase laporan selesai (dihitung khusus dari laporan non-duplikat
+        // agar penutupan cepat laporan duplikat tidak memperbaiki angka kinerja secara palsu)
+        $nonDuplicateReports = Report::whereNull('duplikat_dari')->count();
+        $nonDuplicateSelesai = Report::whereNull('duplikat_dari')->where('status', 'selesai')->count();
+
+        $persentaseSelesai = $nonDuplicateReports > 0
+            ? round(($nonDuplicateSelesai / $nonDuplicateReports) * 100, 1)
+            : 0;
+
         // 2. Rata-rata Waktu Penyelesaian:
-        // Selisih antara created_at laporan dan entri status_logs pertama bernilai "selesai".
+        // Selisih antara created_at laporan dan entri status_logs pertama bernilai "selesai",
+        // dengan mengecualikan laporan yang ditandai duplikat (duplikat_dari tidak null).
         $firstSelesaiSub = DB::table('status_logs')
             ->select('report_id', DB::raw('MIN(created_at) as selesai_at'))
             ->where('status', 'selesai')
@@ -54,6 +59,7 @@ class AdminStatisticsController extends Controller
             : "TIMESTAMPDIFF(SECOND, reports.created_at, first_selesai.selesai_at)";
 
         $avgSeconds = DB::table('reports')
+            ->whereNull('reports.duplikat_dari')
             ->joinSub($firstSelesaiSub, 'first_selesai', function ($join) {
                 $join->on('reports.id', '=', 'first_selesai.report_id');
             })

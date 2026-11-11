@@ -75,7 +75,7 @@
                     </span>
                 </div>
                 <span class="text-2xl font-bold text-green-900 mt-1 block">{{ number_format($statusCounts['selesai'], 0, ',', '.') }}</span>
-                <span class="text-[11px] text-green-600 mt-0.5 block">Tingkat selesai: {{ $persentaseSelesai }}%</span>
+                <span class="text-[11px] text-green-600 mt-0.5 block">Tingkat selesai: {{ $persentaseSelesai }}% (non-duplikat)</span>
             </div>
 
             {{-- Laporan Duplikat --}}
@@ -92,7 +92,7 @@
                     {{ $avgCompletionFormatted }}
                 </span>
                 <span class="text-[10px] text-gray-500 mt-0.5 block leading-tight">
-                    Hingga status 'selesai' pertama
+                    Laporan non-duplikat hingga status 'selesai'
                 </span>
             </div>
 

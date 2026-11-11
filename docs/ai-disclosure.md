@@ -20,8 +20,8 @@ Pengembangan fitur-fitur berikut diimplementasikan dan diverifikasi dengan bantu
 - **Penegakan `ReportPolicy`:** Memastikan warga hanya dapat melihat riwayat laporannya sendiri (403 Forbidden untuk laporan warga lain).
 
 ### c. Halaman Statistik Admin (`/admin/statistik`)
-- **Kartu Ringkasan KPI:** Menghitung total laporan, jumlah per status (`baru`, `diproses`, `selesai`, `perlu_verifikasi`), serta persentase laporan selesai.
-- **Rata-rata Waktu Penyelesaian:** Mengukur selisih antara `created_at` laporan dan entri `status_logs` pertama berstatus *"selesai"* langsung di level basis data (menggunakan `TIMESTAMPDIFF` di MySQL / `strftime` di SQLite) tanpa memuat koleksi ke memori.
+- **Kartu Ringkasan KPI:** Menghitung total laporan, jumlah per status (`baru`, `diproses`, `selesai`, `perlu_verifikasi`), kartu jumlah duplikat, serta persentase laporan selesai (khusus laporan non-duplikat agar penutupan cepat duplikat tidak memanipulasi rasio penyelesaian).
+- **Rata-rata Waktu Penyelesaian:** Mengukur selisih antara `created_at` laporan dan entri `status_logs` pertama berstatus *"selesai"* langsung di level basis data (menggunakan `TIMESTAMPDIFF` di MySQL / `strftime` di SQLite) tanpa memuat koleksi ke memori, dengan mengecualikan laporan yang ditandai duplikat (`duplikat_dari IS NOT NULL`).
 - **Visualisasi Chart.js:**
   - Grafik batang jumlah laporan per kategori menggunakan nilai efektif (`COALESCE(kategori_admin, kategori)`).
   - Grafik garis tren pengaduan 8 minggu terakhir dengan zona waktu `APP_TIMEZONE` (`Asia/Jakarta`) dan label bahasa Indonesia. Minggu tanpa laporan tetap tercatat sebagai 0 dan tidak terlewati.

@@ -156,11 +156,132 @@ class AdminStatisticsTest extends TestCase
             'updated_at' => '2026-11-03 09:00:00',
         ]);
 
-        // Rata-rata durasi: (2 jam + 4 jam) / 2 = 3 jam
+        // Laporan 4: Laporan duplikat yang ditutup cepat (1 menit) -> harus dikecualikan dari rata-rata
+        $report4Duplikat = Report::forceCreate([
+            'user_id' => $warga->id,
+            'judul' => 'Sampah Jembatan A (Duplikat)',
+            'foto_path' => 'reports/4.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'status' => 'selesai',
+            'duplikat_dari' => $report1->id,
+            'created_at' => '2026-11-03 10:00:00',
+            'updated_at' => '2026-11-03 10:00:00',
+        ]);
+
+        StatusLog::forceCreate([
+            'report_id' => $report4Duplikat->id,
+            'status' => 'selesai',
+            'catatan' => 'Selesai sebagai duplikat',
+            'diubah_oleh' => $admin->id,
+            'created_at' => '2026-11-03 10:01:00',
+            'updated_at' => '2026-11-03 10:01:00',
+        ]);
+
+        // Rata-rata durasi laporan asli: (2 jam + 4 jam) / 2 = 3 jam
         $response = $this->actingAs($admin)->get(route('admin.statistics'));
 
         $response->assertOk();
         $response->assertSee('3 jam');
+    }
+
+    /**
+     * Memastikan laporan duplikat yang ditutup tidak memengaruhi rata-rata durasi
+     * maupun persentase laporan selesai secara palsu.
+     */
+    public function test_laporan_duplikat_yang_ditutup_tidak_memengaruhi_rata_rata_durasi_dan_persentase_selesai(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $warga = User::factory()->create(['role' => 'warga']);
+
+        // Laporan asli 1: selesai dalam 4 jam
+        $reportAsli1 = Report::forceCreate([
+            'user_id' => $warga->id,
+            'judul' => 'Sampah TPS Liar 1',
+            'foto_path' => 'reports/asli1.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'status' => 'selesai',
+            'created_at' => '2026-11-01 08:00:00',
+            'updated_at' => '2026-11-01 08:00:00',
+        ]);
+
+        StatusLog::forceCreate([
+            'report_id' => $reportAsli1->id,
+            'status' => 'selesai',
+            'catatan' => 'Selesai diangkut',
+            'diubah_oleh' => $admin->id,
+            'created_at' => '2026-11-01 12:00:00',
+            'updated_at' => '2026-11-01 12:00:00',
+        ]);
+
+        // Laporan asli 2: masih berstatus baru (belum selesai)
+        Report::forceCreate([
+            'user_id' => $warga->id,
+            'judul' => 'Sampah TPS Liar 2',
+            'foto_path' => 'reports/asli2.jpg',
+            'lat' => -6.9200,
+            'lng' => 107.6200,
+            'status' => 'baru',
+            'created_at' => '2026-11-01 09:00:00',
+            'updated_at' => '2026-11-01 09:00:00',
+        ]);
+
+        // Sampai di sini: 1 selesai dari 2 laporan asli -> persentase selesai = 50.0%
+        // Rata-rata waktu penyelesaian = 4 jam.
+
+        // Sekarang buat 2 laporan duplikat yang ditutup cepat sebagai 'selesai'
+        $duplikat1 = Report::forceCreate([
+            'user_id' => $warga->id,
+            'judul' => 'Sampah TPS Liar 1 (Duplikat A)',
+            'foto_path' => 'reports/dup1.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'status' => 'selesai',
+            'duplikat_dari' => $reportAsli1->id,
+            'created_at' => '2026-11-01 10:00:00',
+            'updated_at' => '2026-11-01 10:00:00',
+        ]);
+
+        StatusLog::forceCreate([
+            'report_id' => $duplikat1->id,
+            'status' => 'selesai',
+            'catatan' => 'Tandai selesai sebagai duplikat',
+            'diubah_oleh' => $admin->id,
+            'created_at' => '2026-11-01 10:02:00',
+            'updated_at' => '2026-11-01 10:02:00',
+        ]);
+
+        $duplikat2 = Report::forceCreate([
+            'user_id' => $warga->id,
+            'judul' => 'Sampah TPS Liar 1 (Duplikat B)',
+            'foto_path' => 'reports/dup2.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'status' => 'selesai',
+            'duplikat_dari' => $reportAsli1->id,
+            'created_at' => '2026-11-01 11:00:00',
+            'updated_at' => '2026-11-01 11:00:00',
+        ]);
+
+        StatusLog::forceCreate([
+            'report_id' => $duplikat2->id,
+            'status' => 'selesai',
+            'catatan' => 'Tandai selesai sebagai duplikat',
+            'diubah_oleh' => $admin->id,
+            'created_at' => '2026-11-01 11:05:00',
+            'updated_at' => '2026-11-01 11:05:00',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.statistics'));
+
+        $response->assertOk();
+        // Rata-rata penyelesaian tetap 4 jam (tidak ditarik turun oleh duplikat 2 menit dan 5 menit)
+        $response->assertSee('4 jam');
+        // Persentase tetap 50% (1 dari 2 laporan asli), bukan 75% (3 dari 4)
+        $response->assertSee('50%');
+        // Kartu jumlah duplikat tetap menampilkan 2
+        $response->assertViewHas('totalDuplikat', 2);
     }
 
     /**
