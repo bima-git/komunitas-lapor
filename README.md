@@ -194,11 +194,11 @@ Aplikasi dilengkapi dengan rangkaian pengujian komprehensif (*unit & feature tes
 php artisan test
 ```
 
-### Cakupan Pengujian (78 Tests, 332 Assertions):
+### Cakupan Pengujian (80 Tests, 339 Assertions):
 - **Alur Pelaporan (`ReportTest`):** Pembuatan laporan warga, analisis multimodal AI, fallback kegagalan API, penolakan berkas non-gambar, pengecilan foto $\le$ 1280 px, fallback jika resize gagal, perlindungan throttle, dan proteksi hak akses `ReportPolicy`.
 - **Evaluasi AI & Relevansi (`AiAnalyzerTest`):** Pengujian kesesuaian foto vs deskripsi via `Http::fake` (foto sampah + deskripsi tidak sesuai, foto bukan sampah, keduanya sesuai, dan deskripsi netral).
 - **Model Cadangan AI (`AiAnalyzerFallbackTest`):** Mocking via `Http::fake` untuk memastikan transisi saat model pertama merespons 404, 429, 500, 502, 503, hingga kepastian alur laporan tetap berhasil tersimpan.
-- **Deteksi Laporan Duplikat (`DuplicateReportTest`):** Pengujian laporan radius $\le 50$ m dengan kategori sama terdeteksi, laporan di luar 50 m tidak ditandai, laporan yang sudah selesai diabaikan, laporan kategori berbeda tidak ditandai, kerahasiaan data pelapor lain terjaga dari sisi warga, aksi admin *"Bukan duplikat"* dan *"Tandai selesai sebagai duplikat"*, penolakan akses warga biasa terhadap aksi admin (403), serta penyaringan filter duplikat di dashboard admin.
+- **Deteksi Laporan Duplikat (`DuplicateReportTest`):** Pengujian laporan radius $\le 50$ m dengan kategori sama terdeteksi, laporan di luar 50 m tidak ditandai, laporan lebih dari 30 hari tidak dihitung duplikat, laporan dengan kategori kosong (AI gagal) tetap terdeteksi berdasarkan jarak dan waktu saja, laporan yang sudah selesai diabaikan, laporan kategori berbeda tidak ditandai, kerahasiaan data pelapor lain terjaga dari sisi warga, aksi admin *"Bukan duplikat"* dan *"Tandai selesai sebagai duplikat"*, penolakan akses warga biasa terhadap aksi admin (403), serta penyaringan filter duplikat di dashboard admin.
 - **Panel Admin (`AdminReportTest`):** Hak akses otorisasi admin (warga 403), filter tabel multi-kriteria (termasuk `ai_status`), penandaan peta Leaflet, verifikasi dan koreksi admin tanpa menimpa saran AI asli, penanda visual `ai_status = gagal`, serta aksi analisis ulang AI (`reports.reanalyze`).
 - **Riwayat Status (`ReportTimelineTest`):** Tampilan linimasa urut waktu, penyamaran identitas admin ("Admin"), serta pemisahan catatan publik vs internal.
 - **Halaman Statistik (`AdminStatisticsTest`):** Penghitungan kartu KPI (termasuk kartu duplikat), rata-rata durasi penyelesaian di tingkat SQL, pengujian pemisahan laporan duplikat agar tidak memengaruhi durasi penyelesaian dan persentase selesai, pengujian grafik kategori efektif, grafik mingguan 8 minggu terakhir, serta ketahanan halaman saat belum ada data.
@@ -212,6 +212,7 @@ php artisan test
 3. **Hasil AI Bersifat Rekomendasi:** Analisis AI dirancang sebagai alat bantu penilai awal (*first-line filter*). Validasi akhir dan penugasan armada kebersihan tetap berada di bawah wewenang admin/petugas melalui antarmuka koreksi admin.
 4. **Ketergantungan Ekstensi GD:** Fitur kompresi gambar mengandalkan ekstensi GD bawaan PHP. Jika ekstensi tidak terpasang di server, sistem akan mengaktifkan mode *fallback* menyimpan berkas asli secara otomatis.
 5. **Akurasi Deteksi Duplikat Bergantung pada Presisi Pin Peta:** Perhitungan jarak menggunakan formula Haversine berbasis koordinat latitude/longitude. Jika warga salah menempatkan titik pin pada peta Leaflet atau GPS perangkat memiliki deviasi akurasi yang tinggi, laporan berpotensi tidak terdeteksi sebagai duplikat atau sebaliknya.
+6. **Perilaku Deteksi Duplikat saat Analisis AI Gagal (Kategori Kosong):** Pemanggilan service deteksi duplikat dilakukan *sesudah* proses analisis AI agar dapat memanfaatkan kategori sampah yang diidentifikasi model. Apabila analisis AI gagal (`ai_status = 'gagal'`) sehingga kategori belum terisi, sistem secara adaptif beralih mencocokkan laporan berdasarkan kriteria spasial dan temporal saja (jarak $\le 50$ meter dan waktu $\le 30$ hari). Dengan demikian, laporan di lokasi serupa tetap tertandai tanpa terhambat kegagalan API AI, dan kepastian kategori sampah diserahkan kepada admin.
 
 ---
 

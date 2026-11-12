@@ -123,6 +123,96 @@ class DuplicateReportTest extends TestCase
     }
 
     /**
+     * Laporan lebih dari rentang_hari (30 hari) tidak dihitung sebagai duplikat.
+     */
+    public function test_laporan_lebih_dari_rentang_hari_tidak_dihitung_sebagai_duplikat(): void
+    {
+        $warga1 = User::factory()->create(['role' => 'warga']);
+        $warga2 = User::factory()->create(['role' => 'warga']);
+
+        // Laporan awal dibuat 31 hari lalu (melewati rentang_hari = 30 hari)
+        $report1 = Report::forceCreate([
+            'user_id' => $warga1->id,
+            'judul' => 'Laporan Sebulan Lalu',
+            'foto_path' => 'reports/1.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'kategori' => 'sampah_plastik',
+            'tingkat_keparahan' => 3,
+            'status' => 'baru',
+            'created_at' => now()->subDays(31),
+            'updated_at' => now()->subDays(31),
+        ]);
+
+        $mockAi = $this->createMock(AiAnalyzer::class);
+        $mockAi->method('analyze')->willReturn([
+            'foto_menunjukkan_sampah' => true,
+            'sesuai_deskripsi' => true,
+            'relevan' => true,
+            'kepercayaan' => 90,
+            'kategori' => 'sampah_plastik',
+            'tingkat_keparahan' => 3,
+            'ringkasan' => 'Sampah plastik di lokasi lama.',
+            'alasan' => 'Sampah plastik.',
+        ]);
+        $this->app->instance(AiAnalyzer::class, $mockAi);
+
+        // Laporan baru berada dalam 33m dan kategori sama, tetapi laporan acuan sudah > 30 hari
+        $this->actingAs($warga2)->post(route('reports.store'), [
+            'judul' => 'Laporan Hari Ini',
+            'foto' => UploadedFile::fake()->image('foto2.jpg', 640, 480),
+            'lat' => -6.9175 + 0.0003,
+            'lng' => 107.6191,
+        ]);
+
+        $report2 = Report::where('id', '!=', $report1->id)->first();
+        $this->assertNotNull($report2);
+        $this->assertNull($report2->duplikat_dari);
+    }
+
+    /**
+     * Laporan dengan kategori kosong (AI gagal) tetap mendeteksi duplikat
+     * menggunakan kriteria jarak dan waktu saja.
+     */
+    public function test_laporan_dengan_kategori_kosong_karena_ai_gagal_memakai_jarak_dan_waktu_saja(): void
+    {
+        $warga1 = User::factory()->create(['role' => 'warga']);
+        $warga2 = User::factory()->create(['role' => 'warga']);
+
+        $report1 = Report::create([
+            'user_id' => $warga1->id,
+            'judul' => 'Laporan Sampah Pertama',
+            'foto_path' => 'reports/1.jpg',
+            'lat' => -6.9175,
+            'lng' => 107.6191,
+            'kategori' => 'sampah_plastik',
+            'tingkat_keparahan' => 3,
+            'status' => 'baru',
+            'created_at' => now()->subDays(2),
+        ]);
+
+        // Simulasikan AI gagal (mengembalikan null) sehingga kategori laporan 2 kosong
+        $mockAi = $this->createMock(AiAnalyzer::class);
+        $mockAi->method('analyze')->willReturn(null);
+        $this->app->instance(AiAnalyzer::class, $mockAi);
+
+        $response = $this->actingAs($warga2)->post(route('reports.store'), [
+            'judul' => 'Laporan Kedua yang AI-nya Gagal',
+            'foto' => UploadedFile::fake()->image('foto2.jpg', 640, 480),
+            'lat' => -6.9175 + 0.0003, // ~33m
+            'lng' => 107.6191,
+        ]);
+
+        $report2 = Report::where('id', '!=', $report1->id)->first();
+        $this->assertNotNull($report2);
+        $this->assertEquals('gagal', $report2->ai_status);
+        $this->assertNull($report2->kategori);
+        // Karena berada dalam 33m dan < 30 hari, tetap terdeteksi duplikat dari report1
+        $this->assertEquals($report1->id, $report2->duplikat_dari);
+        $response->assertSessionHas('status', 'Ada laporan serupa di sekitar lokasi ini, laporan Anda tetap kami terima.');
+    }
+
+    /**
      * (c) Laporan berstatus 'selesai' tidak dihitung sebagai duplikat.
      */
     public function test_laporan_berstatus_selesai_tidak_dihitung_sebagai_duplikat(): void

@@ -66,7 +66,8 @@ class DuplicateDetector
             ->whereBetween('lat', [$bbox['min_lat'], $bbox['max_lat']])
             ->whereBetween('lng', [$bbox['min_lng'], $bbox['max_lng']]);
 
-        // Kategori efektif yang sama jika kategori sudah ada
+        // Kategori efektif yang sama jika kategori sudah ada.
+        // Jika kategori kosong (AI gagal / belum diverifikasi), sistem memakai kriteria jarak dan waktu saja.
         $kategori = $report->effective_kategori;
         if ($sameCategoryOnly && ! empty($kategori)) {
             $query->where(function ($q) use ($kategori) {
@@ -74,6 +75,10 @@ class DuplicateDetector
                   ->orWhere(function ($sub) use ($kategori) {
                       $sub->whereNull('kategori_admin')
                           ->where('kategori', $kategori);
+                  })
+                  ->orWhere(function ($sub) {
+                      $sub->whereNull('kategori_admin')
+                          ->whereNull('kategori');
                   });
             });
         }
